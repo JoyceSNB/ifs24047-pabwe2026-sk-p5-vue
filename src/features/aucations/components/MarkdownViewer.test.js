@@ -1,0 +1,1 @@
+import {describe,it,expect} from 'vitest';import {render} from '@testing-library/vue';import C from './MarkdownViewer.vue';describe('MarkdownViewer',()=>it('renders',()=>expect(render(C,{props:{value:'Hello'}}).getByText('Hello')).toBeTruthy()));

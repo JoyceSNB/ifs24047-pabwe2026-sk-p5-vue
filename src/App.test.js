@@ -1,0 +1,1 @@
+import {describe,it,expect} from 'vitest';import {render} from '@testing-library/vue';import {createPinia} from 'pinia';import App from './App.vue';import {createAppRouter} from './router';describe('App',()=>it('mounts',()=>expect(render(App,{global:{plugins:[createPinia(),createAppRouter()]}}).container).toBeTruthy()));

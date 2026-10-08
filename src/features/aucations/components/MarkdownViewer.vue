@@ -1,0 +1,1 @@
+<template><div class="prose prose-slate max-w-none whitespace-pre-wrap" :data-testid="testId">{{ value }}</div></template><script setup>defineProps({value:{type:String,default:''},testId:{type:String,default:'markdown-viewer'}})</script>

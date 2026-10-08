@@ -1,0 +1,1 @@
+import {describe,it,expect} from 'vitest';import {render,fireEvent} from '@testing-library/vue';import C from './MarkdownEditor.vue';describe('MarkdownEditor',()=>it('updates',async()=>{const r=render(C,{props:{modelValue:'a'}});const x=r.getByTestId('markdown-editor');await fireEvent.update(x,'b');expect(x.value).toBe('b')}));

@@ -1,0 +1,1 @@
+import {describe,it,expect} from 'vitest';import {render} from '@testing-library/vue';import {createPinia} from 'pinia';import C from './ProfilePage.vue';describe('ProfilePage',()=>it('mounts',()=>expect(render(C,{props:{show:true},global:{plugins:[createPinia()]}}).container).toBeTruthy()));

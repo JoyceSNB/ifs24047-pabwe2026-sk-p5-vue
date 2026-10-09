@@ -1,20 +1,16 @@
 import { ref } from "vue";
 
-export function useInput(initial = "") {
-  const value = ref(initial);
+/** Composable untuk two-way binding dan perubahan nilai input form. */
+export function useInput(initialValue = "") {
+  const value = ref(initialValue);
 
-  const onInput = (event) => {
-    value.value =
-      event?.target?.value ?? event;
+  const onChange = (event) => {
+    value.value = event.target.value;
   };
 
-  const reset = (v = initial) => {
-    value.value = v;
+  const reset = (next = initialValue) => {
+    value.value = next;
   };
 
-  return {
-    value,
-    onInput,
-    reset,
-  };
+  return { value, onChange, reset };
 }

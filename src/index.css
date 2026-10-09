@@ -1,2 +1,29 @@
 @import "tailwindcss";
-@layer base { body { font-family:'Plus Jakarta Sans',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; } button,a,[role="button"],select,label[for],label[data-testid],summary { cursor:pointer; } }
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  }
+
+  button,
+  a,
+  [role="button"],
+  select,
+  label[for],
+  label[data-testid],
+  summary {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 3px solid #f50b97;
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

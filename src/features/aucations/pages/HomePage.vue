@@ -1,273 +1,180 @@
+<script setup>
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { RouterLink, useRoute, useRouter } from "vue-router";
+import { Clock, Gavel, ImageOff, Plus, Search, Trash2 } from "lucide-vue-next";
+import { useAucationsStore } from "../states/aucationsStore";
+import { useUsersStore } from "../../users/states/usersStore";
+import AddModal from "../modals/AddModal.vue";
+import {
+  assetUrl,
+  formatRupiah,
+  getHighestBid,
+  getTimeLeft,
+  isAucationClosed,
+  showConfirmDialog,
+  showErrorDialog,
+  showSuccessDialog,
+} from "../../../helpers/toolsHelper";
+
+const tabs = [
+  { key: "all", label: "Semua Lelang" },
+  { key: "mine", label: "Lelang Saya" },
+  { key: "open", label: "Lelang Berlangsung" },
+  { key: "closed", label: "Lelang Ditutup" },
+];
+
+const route = useRoute();
+const router = useRouter();
+const store = useAucationsStore();
+const usersStore = useUsersStore();
+
+const keyword = ref("");
+const showAdd = ref(false);
+const now = ref(Date.now());
+let timer = null;
+
+const activeTab = computed(() =>
+  tabs.some((t) => t.key === route.query.tab) ? route.query.tab : "all"
+);
+
+const load = () =>
+  store.fetchAucations(activeTab.value === "mine" ? { isMe: true } : {});
+
+const visible = computed(() => {
+  const q = keyword.value.trim().toLowerCase();
+  return store.aucations
+    .filter((item) => {
+      const closed = isAucationClosed(item.closed_at, now.value);
+      if (activeTab.value === "open") return !closed;
+      if (activeTab.value === "closed") return closed;
+      return true;
+    })
+    .filter((item) => `${item.title} ${item.description}`.toLowerCase().includes(q));
+});
+
+const isOwner = (item) => usersStore.profile?.id === item.user_id;
+
+const selectTab = (key) =>
+  router.replace({ path: "/", query: key === "all" ? {} : { tab: key } });
+
+const onDelete = async (item) => {
+  if (!(await showConfirmDialog(`Hapus lelang "${item.title}"?`, "Ya, hapus"))) return;
+  if (await store.deleteAucation(item.id)) {
+    await showSuccessDialog(store.message);
+    await load();
+  } else {
+    await showErrorDialog(store.message);
+  }
+};
+
+const onDeleteAll = async () => {
+  if (!(await showConfirmDialog("Semua lelang milikmu akan dihapus permanen.", "Ya, hapus semua"))) return;
+  if (await store.deleteAllAucations()) {
+    await showSuccessDialog(store.message);
+    await load();
+  } else {
+    await showErrorDialog(store.message);
+  }
+};
+
+const onSaved = () => load();
+
+onMounted(() => {
+  load();
+  timer = setInterval(() => {
+    now.value = Date.now();
+  }, 30000);
+});
+onBeforeUnmount(() => clearInterval(timer));
+watch(activeTab, load);
+</script>
+
 <template>
-  <div class="p-4 md:p-8">
-    <div
-      class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6"
-    >
+  <section aria-labelledby="home-title">
+    <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p
-          class="text-sm text-indigo-600 font-semibold"
-        >
-          Marketplace lelang
-        </p>
-
-        <h1
-          class="text-3xl font-extrabold text-slate-900"
-        >
-          Lelang
-        </h1>
-
-        <p
-          class="text-slate-500 mt-1"
-        >
-          Temukan barang menarik dan
-          ajukan tawaran terbaik.
-        </p>
+        <h1 id="home-title" class="text-3xl font-extrabold text-indigo-950">Dashboard Lelang</h1>
+        <p class="mt-1 text-slate-700">Temukan barang incaranmu atau pasang lelang baru.</p>
       </div>
-
-      <button
-        data-testid="open-add-modal"
-        @click="showAdd = true"
-        class="px-4 py-2.5 rounded-xl bg-indigo-600 text-white font-semibold"
-      >
-        + Tambah Lelang
+      <button type="button" class="flex items-center gap-2 rounded-lg bg-indigo-950 px-4 py-2.5 font-semibold text-white hover:bg-indigo-900" @click="showAdd = true">
+        <Plus class="size-5" aria-hidden="true" />
+        Tambah Lelang
       </button>
     </div>
 
-    <div
-      class="flex gap-2 border-b mb-5"
-    >
-      <RouterLink
-        v-for="tab in tabs"
-        :key="tab.key"
-        :to="{
-          path: '/',
-          query: {
-            tab: tab.key,
-          },
-        }"
-        class="px-4 py-2.5 text-sm font-semibold border-b-2"
-        :class="
-          activeTab === tab.key
-            ? 'border-indigo-600 text-indigo-600'
-            : 'border-transparent text-slate-500'
-        "
-      >
-        {{ tab.label }}
-      </RouterLink>
-    </div>
-
-    <div class="mb-6">
-      <input
-        v-model="search"
-        data-testid="auction-search"
-        placeholder="Cari lelang..."
-        class="w-full md:max-w-md border border-slate-200 rounded-xl px-4 py-3 bg-white"
-      />
-    </div>
-
-    <div
-      v-if="store.loading"
-      class="py-12 text-center"
-    >
-      Memuat...
-    </div>
-
-    <div
-      v-else-if="filtered.length === 0"
-      data-testid="empty-auctions"
-      class="py-12 text-center text-slate-500"
-    >
-      Tidak ada lelang.
-    </div>
-
-    <div
-      v-else
-      class="grid sm:grid-cols-2 xl:grid-cols-3 gap-5"
-    >
-      <article
-        v-for="a in filtered"
-        :key="a.id"
-        class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md"
-      >
-        <div
-          class="h-40 bg-slate-100 flex items-center justify-center overflow-hidden"
+    <div class="mt-6 flex flex-wrap items-center justify-between gap-4">
+      <div role="group" aria-label="Filter lelang" class="flex flex-wrap gap-2">
+        <button
+          v-for="tab in tabs"
+          :key="tab.key"
+          type="button"
+          :aria-pressed="activeTab === tab.key"
+          :class="[activeTab === tab.key ? 'bg-indigo-950 text-white' : 'bg-white text-slate-800 ring-1 ring-slate-300 hover:bg-slate-50', 'rounded-full px-4 py-2 text-sm font-semibold']"
+          @click="selectTab(tab.key)"
         >
-          <img
-            v-if="a.cover"
-            :src="a.cover"
-            :alt="a.title || 'Cover lelang'"
-            class="w-full h-full object-cover"
-          />
+          {{ tab.label }}
+        </button>
+      </div>
 
-          <span
-            v-else
-            class="text-4xl"
-          >
-            🔨
-          </span>
+      <div class="relative w-full sm:w-72">
+        <label for="search-input" class="sr-only">Cari lelang</label>
+        <Search class="pointer-events-none absolute left-3 top-3 size-5 text-slate-600" aria-hidden="true" />
+        <input id="search-input" v-model="keyword" type="search" placeholder="Cari judul atau deskripsi" class="w-full rounded-lg border border-slate-400 bg-white py-2.5 pl-10 pr-3" />
+      </div>
+    </div>
+
+    <div v-if="activeTab === 'mine' && visible.length" class="mt-4">
+      <button type="button" class="flex items-center gap-2 text-sm font-semibold text-red-700 underline" @click="onDeleteAll">
+        <Trash2 class="size-4" aria-hidden="true" />
+        Hapus semua lelang saya
+      </button>
+    </div>
+
+    <p v-if="store.isAucation" role="status" class="mt-10 text-slate-700">Memuat lelang...</p>
+    <p v-else-if="!visible.length" class="mt-10 rounded-xl border border-dashed border-slate-400 p-10 text-center text-slate-700">
+      Belum ada lelang yang cocok dengan filter ini.
+    </p>
+
+    <ul v-else class="mt-6 grid gap-6 sm:grid-cols-2 xl:grid-cols-3" data-testid="aucation-list">
+      <li v-for="item in visible" :key="item.id" class="flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+        <img v-if="item.cover" :src="assetUrl(item.cover)" :alt="`Cover ${item.title}`" class="h-44 w-full object-cover" loading="lazy" />
+        <div v-else class="flex h-44 items-center justify-center bg-slate-200 text-slate-700">
+          <ImageOff class="size-10" aria-hidden="true" />
+          <span class="sr-only">Tidak ada cover</span>
         </div>
 
-        <div class="p-5">
-          <h2
-            class="font-bold text-lg line-clamp-1"
-          >
-            {{ a.title }}
-          </h2>
+        <div class="flex flex-1 flex-col p-5">
+          <h2 class="text-lg font-bold text-indigo-950">{{ item.title }}</h2>
+          <p class="text-sm text-slate-700">oleh {{ item.author.name }}</p>
 
-          <p
-            class="text-sm text-slate-500 mt-1 line-clamp-2"
-          >
-            {{ a.description }}
+          <dl class="mt-4 space-y-1 text-sm">
+            <div class="flex justify-between"><dt class="text-slate-700">Harga awal</dt><dd class="font-semibold">{{ formatRupiah(item.start_bid) }}</dd></div>
+            <div class="flex justify-between">
+              <dt class="text-slate-700">Tawaran</dt>
+              <dd class="font-bold text-amber-800">
+                {{ item.bids.length ? `${item.bids.length} penawaran` : "Belum ada" }}{{ getHighestBid(item.bids) ? ` · ${formatRupiah(getHighestBid(item.bids))}` : "" }}
+              </dd>
+            </div>
+          </dl>
+
+          <p class="mt-4 flex items-center gap-2 text-sm font-semibold" :class="isAucationClosed(item.closed_at, now) ? 'text-red-700' : 'text-emerald-800'">
+            <Clock class="size-4" aria-hidden="true" />
+            {{ getTimeLeft(item.closed_at, now) }}
           </p>
 
-          <div
-            class="mt-4 flex justify-between items-end"
-          >
-            <div>
-              <p
-                class="text-xs text-slate-400"
-              >
-                Harga awal
-              </p>
-
-              <p
-                class="font-bold text-indigo-700"
-              >
-                {{ formatRupiah(a.start_bid) }}
-              </p>
-            </div>
-
-            <RouterLink
-              :to="`/aucations/${a.id}`"
-              class="px-3 py-2 rounded-lg bg-slate-900 text-white text-sm"
-            >
-              Lihat
+          <div class="mt-5 flex items-center gap-3 pt-1">
+            <RouterLink :to="`/aucations/${item.id}`" class="flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-900">
+              <Gavel class="size-4" aria-hidden="true" />
+              Lihat detail
             </RouterLink>
+            <button v-if="isOwner(item)" type="button" :aria-label="`Hapus lelang ${item.title}`" class="rounded-lg p-2.5 text-red-700 ring-1 ring-red-300 hover:bg-red-50" @click="onDelete(item)">
+              <Trash2 class="size-5" aria-hidden="true" />
+            </button>
           </div>
         </div>
-      </article>
-    </div>
+      </li>
+    </ul>
 
-    <AddModal
-      :show="showAdd"
-      @close="showAdd = false"
-      @saved="load"
-    />
-  </div>
+    <AddModal v-if="showAdd" @close="showAdd = false" @saved="onSaved" />
+  </section>
 </template>
-
-<script setup>
-import {
-  ref,
-  computed,
-  onMounted,
-  watch,
-} from "vue";
-
-import {
-  useRoute,
-  RouterLink,
-} from "vue-router";
-
-import {
-  useAucationsStore,
-} from "../states/aucationsStore";
-
-import {
-  formatRupiah,
-} from "../../../helpers/toolsHelper";
-
-import AddModal from "../modals/AddModal.vue";
-
-const route = useRoute();
-
-const store =
-  useAucationsStore();
-
-const search = ref("");
-
-const showAdd = ref(false);
-
-const tabs = [
-  {
-    key: "open",
-    label: "Semua",
-  },
-  {
-    key: "me",
-    label: "Lelang Saya",
-  },
-  {
-    key: "closed",
-    label: "Ditutup",
-  },
-];
-
-const activeTab = computed(
-  () =>
-    route.query.tab || "open",
-);
-
-const filtered = computed(() => {
-  const query =
-    search.value
-      .trim()
-      .toLowerCase();
-
-  if (!query) {
-    return store.aucations;
-  }
-
-  return store.aucations.filter(
-    (auction) => {
-      const title =
-        auction.title
-          ?.toLowerCase() || "";
-
-      const description =
-        auction.description
-          ?.toLowerCase() || "";
-
-      return (
-        title.includes(query) ||
-        description.includes(query)
-      );
-    },
-  );
-});
-
-function getAuctionQuery() {
-  if (activeTab.value === "me") {
-    return {
-      is_me: true,
-    };
-  }
-
-  if (
-    activeTab.value === "closed"
-  ) {
-    return {
-      is_closed: false,
-    };
-  }
-
-  return {
-    is_closed: true,
-  };
-}
-
-async function load() {
-  await store.asyncGetAucations(
-    getAuctionQuery(),
-  );
-}
-
-onMounted(load);
-
-watch(
-  activeTab,
-  () => {
-    load();
-  },
-);
-</script>

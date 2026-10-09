@@ -1,312 +1,47 @@
-import {
-  describe,
-  it,
-  expect,
-  vi,
-  beforeEach,
-} from "vitest";
-
+import { describe, expect, it, vi } from "vitest";
 import * as api from "./aucationApi";
+import { apiRequest } from "../../../helpers/apiHelper";
+
+vi.mock("../../../helpers/apiHelper", () => ({ apiRequest: vi.fn(async () => ({ status: "success" })) }));
+
+const payload = { title: "T", description: "D", startBid: 1000, closedAt: "2026-12-31 23:59:00" };
+const body = { title: "T", description: "D", start_bid: 1000, closed_at: "2026-12-31 23:59:00" };
 
 describe("aucationApi", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        json: async () => ({
-          data: [],
-        }),
-      })),
-    );
-  });
-
-  it("gets aucations", async () => {
+  it("getAucations tanpa argumen, is_me, dan is_closed", async () => {
     await api.getAucations();
-
-    expect(fetch).toHaveBeenCalled();
+    expect(apiRequest).toHaveBeenLastCalledWith("/aucations", { params: {} });
+    await api.getAucations({ isMe: true, isClosed: 0 });
+    expect(apiRequest).toHaveBeenLastCalledWith("/aucations", { params: { is_me: 1, is_closed: 0 } });
   });
 
-  it("gets aucations with normal params", async () => {
-    await api.getAucations({
-      search: "laptop",
-      page: 1,
-    });
-
-    const [url] = fetch.mock.calls[0];
-    const requestUrl = new URL(url);
-
-    expect(
-      requestUrl.searchParams.get("search"),
-    ).toBe("laptop");
-
-    expect(
-      requestUrl.searchParams.get("page"),
-    ).toBe("1");
+  it("getAucation", async () => {
+    await api.getAucation(5);
+    expect(apiRequest).toHaveBeenCalledWith("/aucations/5");
   });
 
-  it("converts is_me true to 1", async () => {
-    await api.getAucations({
-      is_me: true,
-    });
-
-    const [url] = fetch.mock.calls[0];
-    const requestUrl = new URL(url);
-
-    expect(
-      requestUrl.searchParams.get("is_me"),
-    ).toBe("1");
+  it("addAucation dan changeAucation", async () => {
+    await api.addAucation(payload);
+    expect(apiRequest).toHaveBeenLastCalledWith("/aucations", { method: "POST", body });
+    await api.changeAucation(5, payload);
+    expect(apiRequest).toHaveBeenLastCalledWith("/aucations/5", { method: "PUT", body });
   });
 
-  it("removes is_me false", async () => {
-    await api.getAucations({
-      is_me: false,
-      search: "laptop",
-    });
-
-    const [url] = fetch.mock.calls[0];
-    const requestUrl = new URL(url);
-
-    expect(
-      requestUrl.searchParams.has("is_me"),
-    ).toBe(false);
-
-    expect(
-      requestUrl.searchParams.get("search"),
-    ).toBe("laptop");
+  it("changeCover mengirim FormData cover", async () => {
+    await api.changeCover(5, new File(["x"], "c.png", { type: "image/png" }));
+    const [path, options] = apiRequest.mock.calls[0];
+    expect(path).toBe("/aucations/5/cover");
+    expect(options.formData.get("cover")).toBeInstanceOf(File);
   });
 
-  it("converts is_closed true to 0", async () => {
-    await api.getAucations({
-      is_closed: true,
-    });
-
-    const [url] = fetch.mock.calls[0];
-    const requestUrl = new URL(url);
-
-    expect(
-      requestUrl.searchParams.get("is_closed"),
-    ).toBe("0");
-  });
-
-  it("converts is_closed false to 1", async () => {
-    await api.getAucations({
-      is_closed: false,
-    });
-
-    const [url] = fetch.mock.calls[0];
-    const requestUrl = new URL(url);
-
-    expect(
-      requestUrl.searchParams.get("is_closed"),
-    ).toBe("1");
-  });
-
-  it("gets auction detail", async () => {
-    await api.getAucation(1);
-
-    expect(fetch).toHaveBeenCalled();
-
-    const [url] = fetch.mock.calls[0];
-    const requestUrl = new URL(url);
-
-    expect(
-      requestUrl.pathname,
-    ).toContain("/aucations/1");
-  });
-
-  it("adds auction", async () => {
-    await api.addAucation(
-      "t",
-      "d",
-      1,
-      "x",
-    );
-
-    expect(fetch).toHaveBeenCalled();
-
-    const [url, options] =
-      fetch.mock.calls[0];
-
-    const requestUrl = new URL(url);
-
-    expect(
-      requestUrl.pathname,
-    ).toContain("/aucations");
-
-    expect(options.method).toBe(
-      "POST",
-    );
-
-    expect(
-      JSON.parse(options.body),
-    ).toEqual({
-      title: "t",
-      description: "d",
-      start_bid: 1,
-      closed_at: "x",
-    });
-  });
-
-  it("updates auction", async () => {
-    await api.updateAucation(
-      1,
-      "t",
-      "d",
-      1,
-      "x",
-    );
-
-    expect(fetch).toHaveBeenCalled();
-
-    const [url, options] =
-      fetch.mock.calls[0];
-
-    const requestUrl = new URL(url);
-
-    expect(
-      requestUrl.pathname,
-    ).toContain("/aucations/1");
-
-    expect(options.method).toBe(
-      "PUT",
-    );
-
-    expect(
-      JSON.parse(options.body),
-    ).toEqual({
-      title: "t",
-      description: "d",
-      start_bid: 1,
-      closed_at: "x",
-    });
-  });
-
-  it("changes auction cover", async () => {
-    const file = new File(
-      ["cover"],
-      "cover.jpg",
-      {
-        type: "image/jpeg",
-      },
-    );
-
-    await api.changeCover(
-      1,
-      file,
-    );
-
-    expect(fetch).toHaveBeenCalled();
-
-    const [url, options] =
-      fetch.mock.calls[0];
-
-    const requestUrl = new URL(url);
-
-    expect(
-      requestUrl.pathname,
-    ).toContain(
-      "/aucations/1/cover",
-    );
-
-    expect(options.method).toBe(
-      "POST",
-    );
-
-    expect(
-      options.body,
-    ).toBeInstanceOf(FormData);
-
-    expect(
-      options.body.get("cover"),
-    ).toBe(file);
-  });
-
-  it("deletes auction", async () => {
-    await api.deleteAucation(1);
-
-    expect(fetch).toHaveBeenCalled();
-
-    const [url, options] =
-      fetch.mock.calls[0];
-
-    const requestUrl = new URL(url);
-
-    expect(
-      requestUrl.pathname,
-    ).toContain("/aucations/1");
-
-    expect(options.method).toBe(
-      "DELETE",
-    );
-  });
-
-  it("adds bid", async () => {
-    await api.addBid(1, 2);
-
-    expect(fetch).toHaveBeenCalled();
-
-    const [url, options] =
-      fetch.mock.calls[0];
-
-    const requestUrl = new URL(url);
-
-    expect(
-      requestUrl.pathname,
-    ).toContain(
-      "/aucations/1/bids",
-    );
-
-    expect(options.method).toBe(
-      "POST",
-    );
-
-    expect(
-      JSON.parse(options.body),
-    ).toEqual({
-      bid: 2,
-    });
-  });
-
-  it("deletes bid", async () => {
-    await api.deleteBid(1);
-
-    expect(fetch).toHaveBeenCalled();
-
-    const [url, options] =
-      fetch.mock.calls[0];
-
-    const requestUrl = new URL(url);
-
-    expect(
-      requestUrl.pathname,
-    ).toContain(
-      "/aucations/1/bids",
-    );
-
-    expect(options.method).toBe(
-      "DELETE",
-    );
-  });
-
-  it("deletes all my auctions", async () => {
-    await api.deleteAllMyAucations();
-
-    expect(fetch).toHaveBeenCalled();
-
-    const [url, options] =
-      fetch.mock.calls[0];
-
-    const requestUrl = new URL(url);
-
-    expect(
-      requestUrl.pathname,
-    ).toContain("/aucations");
-
-    expect(options.method).toBe(
-      "DELETE",
-    );
+  it("delete, bid, dan hapus semua", async () => {
+    await api.deleteAucation(5);
+    expect(apiRequest).toHaveBeenLastCalledWith("/aucations/5", { method: "DELETE" });
+    await api.addBid(5, 9000);
+    expect(apiRequest).toHaveBeenLastCalledWith("/aucations/5/bids", { method: "POST", body: { bid: 9000 } });
+    await api.deleteBid(5);
+    expect(apiRequest).toHaveBeenLastCalledWith("/aucations/5/bids", { method: "DELETE" });
+    await api.deleteAllAucations();
+    expect(apiRequest).toHaveBeenLastCalledWith("/aucations", { method: "DELETE" });
   });
 });

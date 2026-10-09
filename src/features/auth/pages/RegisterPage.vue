@@ -1,152 +1,87 @@
-<template>
-  <form
-    class="space-y-4"
-    @submit.prevent="submit"
-  >
-    <div>
-      <h1 class="text-2xl font-extrabold">
-        Buat Akun
-      </h1>
-
-      <p class="mt-1 text-sm text-slate-500">
-        Daftarkan akun baru untuk menggunakan
-        Delcom Auction.
-      </p>
-    </div>
-
-    <input
-      v-model="name"
-      class="w-full border rounded-xl p-3"
-      placeholder="Nama"
-      autocomplete="name"
-    />
-
-    <input
-      v-model="email"
-      type="email"
-      class="w-full border rounded-xl p-3"
-      placeholder="Email"
-      autocomplete="email"
-    />
-
-    <input
-      v-model="password"
-      type="password"
-      class="w-full border rounded-xl p-3"
-      placeholder="Password"
-      autocomplete="new-password"
-    />
-
-    <input
-      v-model="confirm"
-      type="password"
-      class="w-full border rounded-xl p-3"
-      placeholder="Ulangi Password"
-      autocomplete="new-password"
-    />
-
-    <button
-      type="submit"
-      :disabled="loading"
-      class="w-full bg-indigo-600 text-white rounded-xl p-3 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      {{
-        loading
-          ? "Mendaftarkan..."
-          : "Daftar"
-      }}
-    </button>
-
-    <p class="text-sm text-center">
-      Sudah punya akun?
-
-      <RouterLink
-        class="text-indigo-600 font-semibold"
-        to="/auth/login"
-      >
-        Masuk
-      </RouterLink>
-    </p>
-  </form>
-</template>
-
 <script setup>
-import { ref } from "vue";
-
-import {
-  RouterLink,
-  useRouter,
-} from "vue-router";
-
+import { computed, ref } from "vue";
+import { RouterLink, useRouter } from "vue-router";
+import { useInput } from "../../../hooks/useInput";
 import { useAuthStore } from "../states/authStore";
+import { showErrorDialog, showSuccessDialog } from "../../../helpers/toolsHelper";
 
-import {
-  showErrorDialog,
-  showSuccessDialog,
-} from "../../../helpers/toolsHelper";
-
-const name = ref("");
-const email = ref("");
-const password = ref("");
-const confirm = ref("");
-
-const loading = ref(false);
-
-const auth = useAuthStore();
 const router = useRouter();
+const authStore = useAuthStore();
+const name = useInput("");
+const email = useInput("");
+const password = useInput("");
+const confirmation = useInput("");
+const errors = ref({});
 
-async function submit() {
-  if (
-    !name.value.trim() ||
-    !email.value.trim() ||
-    !password.value
-  ) {
-    await showErrorDialog(
-      "Semua field wajib diisi",
-    );
+const isLoading = computed(() => authStore.isAuthRegister);
 
+const validate = () => {
+  const result = {};
+  if (!name.value.value.trim()) result.name = "Nama wajib diisi.";
+  if (!email.value.value.trim()) result.email = "Email wajib diisi.";
+  if (password.value.value.length < 6) result.password = "Kata sandi minimal 6 karakter.";
+  if (confirmation.value.value !== password.value.value) result.confirmation = "Konfirmasi kata sandi tidak sama.";
+  errors.value = result;
+  return Object.keys(result).length === 0;
+};
+
+const onSubmit = async () => {
+  if (!validate()) return;
+  const success = await authStore.register(
+    name.value.value.trim(),
+    email.value.value.trim(),
+    password.value.value
+  );
+  if (!success) {
+    await showErrorDialog(authStore.message);
     return;
   }
+  await showSuccessDialog(authStore.message);
+  router.push("/auth/login");
+};
 
-  if (
-    password.value !== confirm.value
-  ) {
-    await showErrorDialog(
-      "Password tidak sama",
-    );
-
-    return;
-  }
-
-  loading.value = true;
-
-  try {
-    await auth.signUp(
-      email.value.trim(),
-      password.value,
-      name.value.trim(),
-    );
-
-    await showSuccessDialog(
-      "Registrasi berhasil",
-    );
-
-    await router.push(
-      "/auth/login",
-    );
-  } catch (error) {
-    console.error(
-      "REGISTER ERROR:",
-      error,
-    );
-
-    const message =
-      error?.message ||
-      "Registrasi gagal. Silakan coba lagi.";
-
-    await showErrorDialog(message);
-  } finally {
-    loading.value = false;
-  }
-}
+const fields = [
+  { id: "register-name-input", key: "name", label: "Nama lengkap", type: "text", auto: "name", model: name },
+  { id: "register-email-input", key: "email", label: "Email", type: "email", auto: "email", model: email },
+  { id: "register-password-input", key: "password", label: "Kata sandi", type: "password", auto: "new-password", model: password },
+  { id: "register-confirmation-input", key: "confirmation", label: "Ulangi kata sandi", type: "password", auto: "new-password", model: confirmation },
+];
 </script>
+
+<template>
+  <section aria-labelledby="register-title">
+    <h1 id="register-title" class="text-3xl font-extrabold text-indigo-950">Buat akun</h1>
+    <p class="mt-2 text-slate-600">Daftar gratis dan ikut lelang dalam hitungan menit.</p>
+
+    <form class="mt-8 space-y-5" novalidate @submit.prevent="onSubmit">
+      <div v-for="field in fields" :key="field.id">
+        <label :for="field.id" class="block text-sm font-semibold text-slate-800">{{ field.label }}</label>
+        <input
+          :id="field.id"
+          :type="field.type"
+          :autocomplete="field.auto"
+          :value="field.model.value.value"
+          :aria-invalid="Boolean(errors[field.key])"
+          :aria-describedby="errors[field.key] ? `${field.id}-error` : undefined"
+          class="mt-1 w-full rounded-lg border border-slate-400 bg-white px-3 py-2.5 text-slate-900 focus:border-indigo-700"
+          @input="field.model.onChange"
+        />
+        <p v-if="errors[field.key]" :id="`${field.id}-error`" class="mt-1 text-sm text-red-700">{{ errors[field.key] }}</p>
+      </div>
+
+      <button
+        id="register-submit-button"
+        type="submit"
+        :disabled="isLoading"
+        class="w-full rounded-lg bg-indigo-950 px-4 py-3 font-semibold text-white hover:bg-indigo-900 disabled:opacity-70"
+      >
+        {{ isLoading ? "Memproses..." : "Daftar" }}
+      </button>
+    </form>
+
+    <p class="mt-6 text-center text-sm text-slate-700">
+      Sudah punya akun?
+      <RouterLink to="/auth/login" class="font-semibold text-indigo-800 underline">Masuk</RouterLink>
+    </p>
+  </section>
+</template>

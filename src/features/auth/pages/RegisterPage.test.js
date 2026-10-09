@@ -1,314 +1,55 @@
-import {
-  describe,
-  it,
-  expect,
-  vi,
-  beforeEach,
-} from "vitest";
-
-import {
-  render,
-  fireEvent,
-} from "@testing-library/vue";
-
-import {
-  createRouter,
-  createMemoryHistory,
-} from "vue-router";
-
+import { describe, expect, it, vi } from "vitest";
+import { flushPromises } from "@vue/test-utils";
 import RegisterPage from "./RegisterPage.vue";
+import { renderWithProviders } from "../../../test-utils";
+import * as authApi from "../api/authApi";
+import Swal from "sweetalert2";
 
-const {
-  signUpMock,
-  showErrorDialogMock,
-  showSuccessDialogMock,
-} = vi.hoisted(() => ({
-  signUpMock: vi.fn(),
-  showErrorDialogMock: vi.fn(),
-  showSuccessDialogMock: vi.fn(),
-}));
+vi.mock("../api/authApi");
+const routes = [
+  { path: "/auth/login", component: { template: "<div>login</div>" } },
+  { path: "/auth/register", component: RegisterPage },
+  { path: "/", component: { template: "<div>home</div>" } },
+];
 
-vi.mock("../states/authStore", () => ({
-  useAuthStore: () => ({
-    signUp: signUpMock,
-  }),
-}));
-
-vi.mock("../../../helpers/toolsHelper", () => ({
-  showErrorDialog: showErrorDialogMock,
-  showSuccessDialog: showSuccessDialogMock,
-}));
-
-function createTestRouter() {
-  return createRouter({
-    history: createMemoryHistory(),
-    routes: [
-      {
-        path: "/auth/register",
-        component: {
-          template: "<div>Register</div>",
-        },
-      },
-      {
-        path: "/auth/login",
-        component: {
-          template: "<div>Login</div>",
-        },
-      },
-    ],
-  });
-}
-
-async function renderPage() {
-  const router = createTestRouter();
-
-  await router.push("/auth/register");
-  await router.isReady();
-
-  const result = render(RegisterPage, {
-    global: {
-      plugins: [router],
-    },
-  });
-
-  return {
-    ...result,
-    router,
-  };
-}
+const fill = async (wrapper, { name = "Budi", email = "b@x.id", pass = "123456", confirm = "123456" } = {}) => {
+  await wrapper.find("#register-name-input").setValue(name);
+  await wrapper.find("#register-email-input").setValue(email);
+  await wrapper.find("#register-password-input").setValue(pass);
+  await wrapper.find("#register-confirmation-input").setValue(confirm);
+  await wrapper.find("form").trigger("submit");
+  await flushPromises();
+};
 
 describe("RegisterPage", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  it("validasi semua field", async () => {
+    const { wrapper } = await renderWithProviders(RegisterPage, { routes, route: "/auth/register" });
+    await fill(wrapper, { name: "", email: "", pass: "123", confirm: "999" });
+    expect(wrapper.text()).toContain("Nama wajib diisi.");
+    expect(wrapper.text()).toContain("Email wajib diisi.");
+    expect(wrapper.text()).toContain("Kata sandi minimal 6 karakter.");
+    expect(wrapper.text()).toContain("Konfirmasi kata sandi tidak sama.");
+    expect(authApi.register).not.toHaveBeenCalled();
   });
 
-  it("renders the registration form", async () => {
-    const {
-      getByPlaceholderText,
-      getByText,
-    } = await renderPage();
-
-    expect(
-      getByText("Buat Akun"),
-    ).toBeTruthy();
-
-    expect(
-      getByPlaceholderText("Nama"),
-    ).toBeTruthy();
-
-    expect(
-      getByPlaceholderText("Email"),
-    ).toBeTruthy();
-
-    expect(
-      getByPlaceholderText("Password"),
-    ).toBeTruthy();
-
-    expect(
-      getByPlaceholderText("Ulangi Password"),
-    ).toBeTruthy();
+  it("menampilkan error dari API", async () => {
+    authApi.register.mockResolvedValue({ status: "fail", message: "Email dipakai" });
+    const { wrapper, router } = await renderWithProviders(RegisterPage, { routes, route: "/auth/register" });
+    await fill(wrapper);
+    expect(authApi.register).toHaveBeenCalledWith("Budi", "b@x.id", "123456");
+    expect(Swal.fire).toHaveBeenCalledWith(expect.objectContaining({ text: "Email dipakai" }));
+    expect(router.currentRoute.value.path).toBe("/auth/register");
   });
 
-  it("shows an error when required fields are empty", async () => {
-    const { getByText } = await renderPage();
-
-    await fireEvent.click(
-      getByText("Daftar"),
-    );
-
-    expect(
-      showErrorDialogMock,
-    ).toHaveBeenCalledWith(
-      "Semua field wajib diisi",
-    );
-
-    expect(
-      signUpMock,
-    ).not.toHaveBeenCalled();
+  it("pindah ke login setelah sukses", async () => {
+    authApi.register.mockResolvedValue({ status: "success", message: "Terdaftar" });
+    const { wrapper, router } = await renderWithProviders(RegisterPage, { routes, route: "/auth/register" });
+    await fill(wrapper);
+    expect(router.currentRoute.value.path).toBe("/auth/login");
   });
 
-  it("shows an error when passwords do not match", async () => {
-    const {
-      getByPlaceholderText,
-      getByText,
-    } = await renderPage();
-
-    await fireEvent.update(
-      getByPlaceholderText("Nama"),
-      "Budi",
-    );
-
-    await fireEvent.update(
-      getByPlaceholderText("Email"),
-      "budi@example.com",
-    );
-
-    await fireEvent.update(
-      getByPlaceholderText("Password"),
-      "password123",
-    );
-
-    await fireEvent.update(
-      getByPlaceholderText("Ulangi Password"),
-      "password456",
-    );
-
-    await fireEvent.click(
-      getByText("Daftar"),
-    );
-
-    expect(
-      showErrorDialogMock,
-    ).toHaveBeenCalledWith(
-      "Password tidak sama",
-    );
-
-    expect(
-      signUpMock,
-    ).not.toHaveBeenCalled();
-  });
-
-  it("registers successfully and redirects to login", async () => {
-    signUpMock.mockResolvedValue({
-      success: true,
-    });
-
-    showSuccessDialogMock.mockResolvedValue();
-
-    const {
-      getByPlaceholderText,
-      getByText,
-      router,
-    } = await renderPage();
-
-    await fireEvent.update(
-      getByPlaceholderText("Nama"),
-      "Budi",
-    );
-
-    await fireEvent.update(
-      getByPlaceholderText("Email"),
-      "budi@example.com",
-    );
-
-    await fireEvent.update(
-      getByPlaceholderText("Password"),
-      "password123",
-    );
-
-    await fireEvent.update(
-      getByPlaceholderText("Ulangi Password"),
-      "password123",
-    );
-
-    await fireEvent.click(
-      getByText("Daftar"),
-    );
-
-    expect(
-      signUpMock,
-    ).toHaveBeenCalledWith(
-      "budi@example.com",
-      "password123",
-      "Budi",
-    );
-
-    expect(
-      showSuccessDialogMock,
-    ).toHaveBeenCalledWith(
-      "Registrasi berhasil",
-    );
-
-    await new Promise(
-      (resolve) => setTimeout(resolve, 0),
-    );
-
-    expect(
-      router.currentRoute.value.path,
-    ).toBe("/auth/login");
-  });
-
-  it("shows the error message when registration fails", async () => {
-    const error = new Error(
-      "Email sudah digunakan",
-    );
-
-    signUpMock.mockRejectedValue(error);
-
-    const {
-      getByPlaceholderText,
-      getByText,
-    } = await renderPage();
-
-    await fireEvent.update(
-      getByPlaceholderText("Nama"),
-      "Budi",
-    );
-
-    await fireEvent.update(
-      getByPlaceholderText("Email"),
-      "budi@example.com",
-    );
-
-    await fireEvent.update(
-      getByPlaceholderText("Password"),
-      "password123",
-    );
-
-    await fireEvent.update(
-      getByPlaceholderText("Ulangi Password"),
-      "password123",
-    );
-
-    await fireEvent.click(
-      getByText("Daftar"),
-    );
-
-    expect(
-      showErrorDialogMock,
-    ).toHaveBeenCalledWith(
-      "Email sudah digunakan",
-    );
-  });
-
-  it("handles registration failure with an empty error message", async () => {
-    const error = new Error("");
-
-    signUpMock.mockRejectedValue(error);
-
-    const {
-      getByPlaceholderText,
-      getByText,
-    } = await renderPage();
-
-    await fireEvent.update(
-      getByPlaceholderText("Nama"),
-      "Budi",
-    );
-
-    await fireEvent.update(
-      getByPlaceholderText("Email"),
-      "budi@example.com",
-    );
-
-    await fireEvent.update(
-      getByPlaceholderText("Password"),
-      "password123",
-    );
-
-    await fireEvent.update(
-      getByPlaceholderText("Ulangi Password"),
-      "password123",
-    );
-
-    await fireEvent.click(
-      getByText("Daftar"),
-    );
-
-    expect(
-      showErrorDialogMock,
-    ).toHaveBeenCalledWith(
-      "Registrasi gagal. Silakan coba lagi.",
-    );
+  it("tombol nonaktif saat memproses", async () => {
+    const { wrapper } = await renderWithProviders(RegisterPage, { routes, state: { auth: { isAuthRegister: true } } });
+    expect(wrapper.find("#register-submit-button").text()).toBe("Memproses...");
   });
 });

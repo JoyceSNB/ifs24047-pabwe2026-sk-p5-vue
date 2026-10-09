@@ -1,103 +1,41 @@
-export const TOKEN_KEY =
-  "delcom_access_token";
+const TOKEN_KEY = "delcom_auction_token";
 
-export function getAccessToken() {
-  return localStorage.getItem(TOKEN_KEY);
-}
+export const getAccessToken = () => localStorage.getItem(TOKEN_KEY);
 
-export function putAccessToken(token) {
-  if (token) {
-    localStorage.setItem(
-      TOKEN_KEY,
-      token,
-    );
-  } else {
-    localStorage.removeItem(TOKEN_KEY);
-  }
-}
+export const putAccessToken = (token) => localStorage.setItem(TOKEN_KEY, token);
 
-export async function apiFetch(
+export const removeAccessToken = () => localStorage.removeItem(TOKEN_KEY);
+
+/**
+ * Wrapper fetch untuk REST API Delcom.
+ * Selalu mengembalikan objek { status, message, data } (tidak melempar error).
+ */
+export async function apiRequest(
   path,
-  {
-    method = "GET",
-    body,
-    query,
-    headers = {},
-  } = {},
+  { method = "GET", body, formData, params } = {}
 ) {
-  const url = new URL(
-    `${DELCOM_BASEURL}${path}`,
-  );
+  const query = new URLSearchParams(params).toString();
+  const url = `${DELCOM_BASEURL}${path}${query ? `?${query}` : ""}`;
 
-  Object.entries(query || {}).forEach(
-    ([key, value]) => {
-      if (
-        value !== undefined &&
-        value !== null &&
-        value !== ""
-      ) {
-        url.searchParams.set(
-          key,
-          value,
-        );
-      }
-    },
-  );
-
-  const requestHeaders = {
-    Accept: "application/json",
-    ...headers,
-  };
-
+  const headers = { Accept: "application/json" };
   const token = getAccessToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
 
-  if (token) {
-    requestHeaders.Authorization =
-      `Bearer ${token}`;
+  const options = { method, headers };
+  if (formData) {
+    options.body = formData;
+  } else if (body) {
+    headers["Content-Type"] = "application/json";
+    options.body = JSON.stringify(body);
   }
-
-  const init = {
-    method,
-    headers: requestHeaders,
-  };
-
-  if (body instanceof FormData) {
-    init.body = body;
-  } else if (body !== undefined) {
-    requestHeaders["Content-Type"] =
-      "application/json";
-
-    init.body = JSON.stringify(body);
-  }
-
-  const response = await fetch(
-    url,
-    init,
-  );
-
-  let data = null;
 
   try {
-    data = await response.json();
+    const response = await fetch(url, options);
+    return await response.json();
   } catch {
-    data = null;
+    return {
+      status: "error",
+      message: "Tidak dapat terhubung ke server. Periksa koneksi internet kamu.",
+    };
   }
-
-  if (!response.ok) {
-    console.error("API ERROR:", {
-      status: response.status,
-      statusText: response.statusText,
-      url: url.toString(),
-      response: data,
-    });
-
-    const message =
-      data?.message ||
-      data?.errors?.[0]?.message ||
-      `HTTP ${response.status}`;
-
-    throw new Error(message);
-  }
-
-  return data;
 }

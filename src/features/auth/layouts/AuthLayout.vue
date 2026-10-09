@@ -1,66 +1,38 @@
+<script setup>
+import { RouterView } from "vue-router";
+import { Gavel } from "lucide-vue-next";
+</script>
+
 <template>
-  <div
-    class="min-h-screen bg-slate-100 flex items-center justify-center p-4"
-  >
-    <div
-      class="w-full max-w-5xl grid lg:grid-cols-2 bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200"
+  <div class="min-h-screen grid lg:grid-cols-2 bg-white">
+    <aside
+      class="hidden lg:flex flex-col justify-between bg-indigo-950 text-indigo-50 p-12"
+      data-testid="auth-banner"
     >
-      <!-- Banner -->
-      <section
-        class="hidden lg:flex bg-gradient-to-br from-indigo-700 via-purple-700 to-fuchsia-700 text-white p-10 flex-col justify-between"
-      >
-        <div>
-          <div
-            class="w-12 h-12 rounded-2xl bg-white text-indigo-700 flex items-center justify-center shadow-sm text-xl font-black"
-            aria-label="Delcom Auction"
-          >
-            DA
-          </div>
+      <p class="flex items-center gap-3 text-xl font-bold">
+        <Gavel class="size-8 text-amber-400" aria-hidden="true" />
+        Delcom Auction
+      </p>
+      <div>
+        <p class="text-5xl font-extrabold leading-tight tracking-tight">
+          Sekali ketuk,<br />barang berpindah tangan.
+        </p>
+        <p class="mt-6 max-w-md text-lg text-indigo-100">
+          Pasang barang, pantau penawaran masuk, dan menangkan lelang dengan
+          harga terbaik.
+        </p>
+      </div>
+      <p class="text-sm text-indigo-200">Praktikum PABWE 2026</p>
+    </aside>
 
-          <p
-            class="mt-6 text-sm font-semibold uppercase tracking-wider text-white/70"
-          >
-            Praktikum 5 PABWE
-          </p>
-
-          <h1
-            class="mt-3 text-4xl font-extrabold leading-tight"
-          >
-            Delcom Auction
-          </h1>
-
-          <p
-            class="mt-4 text-white/80 leading-relaxed"
-          >
-            Platform lelang untuk menemukan
-            barang menarik dan memberikan
-            tawaran terbaik.
-          </p>
-        </div>
-
-        <div
-          class="text-sm text-white/60"
-        >
-          © 2026 Delcom Auction
-        </div>
-      </section>
-
-      <!-- Form -->
-      <main
-        class="p-6 sm:p-8 lg:p-10 flex items-center"
-      >
-        <div
-          class="w-full max-w-md mx-auto"
-        >
-          <RouterView />
-        </div>
-      </main>
-    </div>
+    <main id="main" class="flex items-center justify-center p-6 sm:p-12">
+      <div class="w-full max-w-md">
+        <p class="lg:hidden mb-8 flex items-center gap-2 text-lg font-bold text-indigo-950">
+          <Gavel class="size-6 text-amber-700" aria-hidden="true" />
+          Delcom Auction
+        </p>
+        <RouterView />
+      </div>
+    </main>
   </div>
 </template>
-
-<script setup>
-import {
-  RouterView,
-} from "vue-router";
-</script>

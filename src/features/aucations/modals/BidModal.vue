@@ -1,2 +1,64 @@
-<template><div v-if="show" data-testid="bid-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50"><div class="w-full max-w-md bg-white rounded-3xl"><div class="flex justify-between p-5 border-b"><div><h3>Ajukan Penawaran</h3><p class="text-xs text-slate-500">{{aucation?.title}}</p></div><button data-testid="close-bid-modal-btn" @click="onClose">✕</button></div><form @submit.prevent="handleSave"><div class="p-6 space-y-4"><p data-testid="bid-hint" class="rounded-xl bg-indigo-50 p-3 text-sm"><template v-if="highestBid!==null">Tawaran tertinggi saat ini <strong>{{formatRupiah(highestBid)}}</strong>. Penawaranmu harus lebih tinggi.</template><template v-else>Belum ada penawaran. Penawaran pertama minimal <strong>{{formatRupiah(aucation?.start_bid)}}</strong>.</template></p><input type="number" min="1" data-testid="bid-input" v-model="bid" class="w-full border rounded-xl p-3" :placeholder="`Minimal ${formatRupiah(minimumBid)}`"/></div><div class="p-5 border-t flex justify-end gap-3"><button type="button" data-testid="cancel-bid-modal-btn" @click="onClose">Batal</button><button data-testid="submit-bid-modal-btn" :disabled="loading" class="px-5 py-2 rounded-xl bg-indigo-600 text-white">{{loading?'Mengirim...':'Kirim Penawaran'}}</button></div></form></div></div></template>
-<script setup>import {ref,computed,watch} from 'vue';import {useAucationsStore} from '../states/aucationsStore';import {formatRupiah,showErrorDialog} from '../../../helpers/toolsHelper';import {getHighestBid} from '../helpers/aucationHelper';const p=defineProps({show:Boolean,aucation:Object});const emit=defineEmits(['close','saved']);const s=useAucationsStore();const loading=ref(false),bid=ref('');const highestBid=computed(()=>getHighestBid(p.aucation));const minimumBid=computed(()=>highestBid.value!==null?highestBid.value+1:Number(p.aucation?.start_bid)||1);const onClose=()=>emit('close');watch(()=>p.show,v=>{if(v)bid.value=''});watch(()=>[s.isBidAdd,s.isBidAdded],([a,added])=>{if(a){loading.value=false;s.setIsBidAdd(false);if(added){s.setIsBidAdded(false);emit('saved');onClose()}}});function handleSave(){const amount=Number(bid.value);if(!(amount>0))return showErrorDialog('Nominal penawaran tidak valid');if(amount<minimumBid.value)return showErrorDialog(highestBid.value!==null?`Penawaran harus lebih tinggi dari tawaran tertinggi saat ini (${formatRupiah(highestBid.value)})`:`Penawaran minimal sama dengan harga awal (${formatRupiah(p.aucation?.start_bid)})`);loading.value=true;s.asyncSetIsBidAdd(p.aucation.id,amount)}</script>
+<script setup>
+import { computed, ref } from "vue";
+import ModalShell from "../components/ModalShell.vue";
+import { useInput } from "../../../hooks/useInput";
+import { useAucationsStore } from "../states/aucationsStore";
+import { formatRupiah, showErrorDialog, showSuccessDialog } from "../../../helpers/toolsHelper";
+
+const props = defineProps({
+  aucationId: { type: [Number, String], required: true },
+  startBid: { type: Number, required: true },
+  highestBid: { type: Number, default: 0 },
+});
+const emit = defineEmits(["close", "saved"]);
+const store = useAucationsStore();
+const bid = useInput("");
+const error = ref("");
+
+const hint = computed(() =>
+  props.highestBid > 0
+    ? `Penawaran tertinggi saat ini ${formatRupiah(props.highestBid)}. Tawaranmu harus lebih tinggi.`
+    : `Belum ada penawaran. Minimal ${formatRupiah(props.startBid)}.`
+);
+
+const isValid = (value) =>
+  props.highestBid > 0 ? value > props.highestBid : value >= props.startBid;
+
+const onSubmit = async () => {
+  const value = Number(bid.value.value);
+  if (!isValid(value)) {
+    error.value = props.highestBid > 0
+      ? `Nominal tawaran harus lebih tinggi dari ${formatRupiah(props.highestBid)}.`
+      : `Nominal tawaran minimal ${formatRupiah(props.startBid)}.`;
+    return;
+  }
+  error.value = "";
+  const success = await store.addBid(props.aucationId, value);
+  if (!success) {
+    await showErrorDialog(store.message);
+    return;
+  }
+  await showSuccessDialog(store.message);
+  emit("saved");
+  emit("close");
+};
+</script>
+
+<template>
+  <ModalShell title="Ajukan Penawaran" title-id="bid-modal-title" @close="emit('close')">
+    <form class="space-y-4" novalidate @submit.prevent="onSubmit">
+      <p class="text-sm text-slate-700" data-testid="bid-hint">{{ hint }}</p>
+      <div>
+        <label for="bid-amount" class="block text-sm font-semibold text-slate-800">Nominal tawaran (Rp)</label>
+        <input id="bid-amount" type="number" min="0" :value="bid.value.value" class="mt-1 w-full rounded-lg border border-slate-400 px-3 py-2.5" :aria-invalid="Boolean(error)" @input="bid.onChange" />
+        <p v-if="error" class="mt-1 text-sm text-red-700" role="alert">{{ error }}</p>
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" class="rounded-lg px-4 py-2.5 font-semibold text-slate-800 hover:bg-slate-100" @click="emit('close')">Batal</button>
+        <button type="submit" :disabled="store.isBidAdd" class="rounded-lg bg-amber-700 px-5 py-2.5 font-semibold text-white hover:bg-amber-800 disabled:opacity-70">
+          {{ store.isBidAdd ? "Mengirim..." : "Kirim tawaran" }}
+        </button>
+      </div>
+    </form>
+  </ModalShell>
+</template>

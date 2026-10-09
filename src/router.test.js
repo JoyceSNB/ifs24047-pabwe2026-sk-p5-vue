@@ -1,222 +1,58 @@
-﻿import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-} from "vitest";
-
+import { describe, expect, it } from "vitest";
 import { createMemoryHistory } from "vue-router";
+import { authGuard, createAppRouter, router, routes } from "./router";
+import { putAccessToken } from "./helpers/apiHelper";
 
-import { createAppRouter } from "./router";
+const flatten = (list) => list.flatMap((r) => [r, ...flatten(r.children || [])]);
 
-import {
-  getAccessToken,
-  putAccessToken,
-} from "./helpers/apiHelper";
-
-function createTestRouter() {
-  return createAppRouter(createMemoryHistory());
-}
-
-async function navigate(path) {
-  const router = createTestRouter();
-
-  await router.push(path);
-  await router.isReady();
-
-  return router;
-}
-
-beforeEach(() => {
-  localStorage.clear();
-  putAccessToken(null);
-});
-
-describe("createAppRouter", () => {
-  it("creates router with auth login route", async () => {
-    const router = await navigate("/auth/login");
-
-    expect(router.currentRoute.value.path).toBe(
-      "/auth/login",
-    );
-
-    expect(
-      router.currentRoute.value.matched.length,
-    ).toBe(2);
+describe("router", () => {
+  it("semua lazy component dapat dimuat", async () => {
+    const loaders = flatten(routes).map((r) => r.component);
+    const modules = await Promise.all(loaders.map((load) => load()));
+    expect(modules).toHaveLength(9);
+    modules.forEach((m) => expect(m.default).toBeTruthy());
   });
 
-  it("creates router with auth register route", async () => {
-    const router = await navigate("/auth/register");
-
-    expect(router.currentRoute.value.path).toBe(
-      "/auth/register",
+  it("mendeklarasikan rute yang diminta", () => {
+    const paths = router.getRoutes().map((r) => r.path);
+    ["/auth/login", "/auth/register", "/", "/aucations/:aucationId", "/users", "/profile"].forEach((p) =>
+      expect(paths).toContain(p)
     );
-
-    expect(
-      router.currentRoute.value.matched.length,
-    ).toBe(2);
+    expect(paths).toContain("/:pathMatch(.*)*");
   });
 
-  it("redirects unauthenticated user from dashboard to login", async () => {
-    putAccessToken(null);
-
-    const router = await navigate("/");
-
-    expect(getAccessToken()).toBeNull();
-
-    expect(router.currentRoute.value.path).toBe(
-      "/auth/login",
-    );
+  it("guard mengarahkan tamu ke login", async () => {
+    const r = createAppRouter(createMemoryHistory());
+    await r.push("/profile");
+    expect(r.currentRoute.value.path).toBe("/auth/login");
+    expect(document.title).toBe("Masuk | Delcom Auction");
   });
 
-  it("allows authenticated user to access dashboard", async () => {
-    putAccessToken("access-token");
-
-    const router = await navigate("/");
-
-    expect(getAccessToken()).toBe(
-      "access-token",
-    );
-
-    expect(router.currentRoute.value.path).toBe(
-      "/",
-    );
+  it("guard mengarahkan pengguna login dari halaman auth ke beranda", async () => {
+    putAccessToken("t");
+    const r = createAppRouter(createMemoryHistory());
+    await r.push("/auth/login");
+    expect(r.currentRoute.value.path).toBe("/");
+    await r.push("/halaman/ngawur");
+    expect(r.currentRoute.value.name).toBe("not-found");
   });
 
-  it("allows authenticated user to access auction detail", async () => {
-    putAccessToken("access-token");
-
-    const router = await navigate(
-      "/aucations/123",
-    );
-
-    expect(
-      router.currentRoute.value.path,
-    ).toBe("/aucations/123");
-
-    expect(
-      router.currentRoute.value.params.aucationId,
-    ).toBe("123");
+  it("authGuard mengizinkan rute publik dan memakai judul default", async () => {
+    expect(authGuard({ matched: [{ meta: {} }] })).toBe(true);
+    const r = createAppRouter(createMemoryHistory());
+    await r.push("/halaman/ngawur");
+    expect(r.currentRoute.value.name).toBe("not-found");
+    r.getRoutes();
   });
 
-  it("allows authenticated user to access users page", async () => {
-    putAccessToken("access-token");
-
-    const router = await navigate("/users");
-
-    expect(
-      router.currentRoute.value.path,
-    ).toBe("/users");
+  it("createAppRouter memakai history default browser", () => {
+    expect(createAppRouter()).toBeTruthy();
   });
 
-  it("allows authenticated user to access profile page", async () => {
-    putAccessToken("access-token");
-
-    const router = await navigate("/profile");
-
-    expect(
-      router.currentRoute.value.path,
-    ).toBe("/profile");
-  });
-
-  it("redirects authenticated user away from auth login", async () => {
-    putAccessToken("access-token");
-
-    const router = await navigate(
-      "/auth/login",
-    );
-
-    expect(
-      getAccessToken(),
-    ).toBe("access-token");
-
-    expect(
-      router.currentRoute.value.path,
-    ).toBe("/");
-  });
-
-  it("redirects authenticated user away from auth register", async () => {
-    putAccessToken("access-token");
-
-    const router = await navigate(
-      "/auth/register",
-    );
-
-    expect(
-      getAccessToken(),
-    ).toBe("access-token");
-
-    expect(
-      router.currentRoute.value.path,
-    ).toBe("/");
-  });
-
-  it("allows unauthenticated user to access auth login", async () => {
-    putAccessToken(null);
-
-    const router = await navigate(
-      "/auth/login",
-    );
-
-    expect(
-      getAccessToken(),
-    ).toBeNull();
-
-    expect(
-      router.currentRoute.value.path,
-    ).toBe("/auth/login");
-  });
-
-  it("allows unauthenticated user to access auth register", async () => {
-    putAccessToken(null);
-
-    const router = await navigate(
-      "/auth/register",
-    );
-
-    expect(
-      getAccessToken(),
-    ).toBeNull();
-
-    expect(
-      router.currentRoute.value.path,
-    ).toBe("/auth/register");
-  });
-
-  it("matches unknown paths with not found route", async () => {
-    putAccessToken("access-token");
-
-    const router = await navigate(
-      "/this-route-does-not-exist",
-    );
-
-    expect(
-      router.currentRoute.value.path,
-    ).toBe(
-      "/this-route-does-not-exist",
-    );
-
-    expect(
-      router.currentRoute.value.matched.length,
-    ).toBe(1);
-
-    expect(
-      router.currentRoute.value.matched[0].path,
-    ).toBe("/:pathMatch(.*)*");
-  });
-
-  it("supports a custom history implementation", async () => {
-    putAccessToken("access-token");
-
-    const history = createMemoryHistory();
-
-    const router = createAppRouter(history);
-
-    await router.push("/users");
-    await router.isReady();
-
-    expect(
-      router.currentRoute.value.path,
-    ).toBe("/users");
+  it("judul default dipakai saat meta.title kosong", async () => {
+    const r = createAppRouter(createMemoryHistory());
+    r.addRoute({ path: "/tanpa-judul", component: { template: "<div/>" } });
+    await r.push("/tanpa-judul");
+    expect(document.title).toBe("Delcom Auction | Delcom Auction");
   });
 });

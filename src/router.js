@@ -1,173 +1,84 @@
-﻿import {
-  createRouter,
-  createWebHistory,
-} from "vue-router";
+import { createRouter, createWebHistory } from "vue-router";
+import { getAccessToken } from "./helpers/apiHelper";
 
-import {
-  getAccessToken,
-} from "./helpers/apiHelper";
-
-const AuthLayout =
-  () =>
-    import(
-      "./features/auth/layouts/AuthLayout.vue"
-    );
-
-const LoginPage =
-  () =>
-    import(
-      "./features/auth/pages/LoginPage.vue"
-    );
-
-const RegisterPage =
-  () =>
-    import(
-      "./features/auth/pages/RegisterPage.vue"
-    );
-
-const AucationLayout =
-  () =>
-    import(
-      "./features/aucations/layouts/AucationLayout.vue"
-    );
-
-const HomePage =
-  () =>
-    import(
-      "./features/aucations/pages/HomePage.vue"
-    );
-
-const DetailPage =
-  () =>
-    import(
-      "./features/aucations/pages/DetailPage.vue"
-    );
-
-const UsersPage =
-  () =>
-    import(
-      "./features/users/pages/UsersPage.vue"
-    );
-
-const ProfilePage =
-  () =>
-    import(
-      "./features/users/pages/ProfilePage.vue"
-    );
-
-const NotFoundPage =
-  () =>
-    import(
-      "./features/common/pages/NotFoundPage.vue"
-    );
-
-const routes = [
+export const routes = [
   {
     path: "/auth",
-    component: AuthLayout,
-
+    component: () => import("./features/auth/layouts/AuthLayout.vue"),
+    meta: { guestOnly: true },
     children: [
       {
         path: "login",
-        name: "Login",
-        component: LoginPage,
+        name: "login",
+        component: () => import("./features/auth/pages/LoginPage.vue"),
+        meta: { title: "Masuk" },
       },
-
       {
         path: "register",
-        name: "Register",
-        component: RegisterPage,
+        name: "register",
+        component: () => import("./features/auth/pages/RegisterPage.vue"),
+        meta: { title: "Daftar" },
       },
     ],
   },
-
   {
     path: "/",
-    component: AucationLayout,
-
-    meta: {
-      requiresAuth: true,
-    },
-
+    component: () => import("./features/aucations/layouts/AucationLayout.vue"),
+    meta: { requiresAuth: true },
     children: [
       {
         path: "",
-        name: "Home",
-        component: HomePage,
+        name: "home",
+        component: () => import("./features/aucations/pages/HomePage.vue"),
+        meta: { title: "Dashboard Lelang" },
       },
-
       {
         path: "aucations/:aucationId",
-        name: "DetailAucation",
-        component: DetailPage,
+        name: "aucation-detail",
+        component: () => import("./features/aucations/pages/DetailPage.vue"),
+        meta: { title: "Detail Lelang" },
       },
-
       {
         path: "users",
-        name: "Users",
-        component: UsersPage,
+        name: "users",
+        component: () => import("./features/users/pages/UsersPage.vue"),
+        meta: { title: "Daftar Pengguna" },
       },
-
       {
         path: "profile",
-        name: "Profile",
-        component: ProfilePage,
+        name: "profile",
+        component: () => import("./features/users/pages/ProfilePage.vue"),
+        meta: { title: "Profil Saya" },
       },
     ],
   },
-
   {
     path: "/:pathMatch(.*)*",
-    name: "NotFound",
-    component: NotFoundPage,
+    name: "not-found",
+    component: () => import("./features/common/pages/NotFoundPage.vue"),
+    meta: { title: "Halaman Tidak Ditemukan" },
   },
 ];
 
-export function createAppRouter(
-  history = createWebHistory(),
-) {
-  const router =
-    createRouter({
-      history,
-      routes,
-    });
+/** Guard rute: halaman privat butuh token, halaman auth hanya untuk tamu. */
+export const authGuard = (to) => {
+  const isLoggedIn = Boolean(getAccessToken());
+  if (to.matched.some((r) => r.meta.requiresAuth) && !isLoggedIn) {
+    return { name: "login" };
+  }
+  if (to.matched.some((r) => r.meta.guestOnly) && isLoggedIn) {
+    return { name: "home" };
+  }
+  return true;
+};
 
-  router.beforeEach(
-    (to) => {
-      const token =
-        getAccessToken();
+export const createAppRouter = (history = createWebHistory()) => {
+  const instance = createRouter({ history, routes });
+  instance.beforeEach(authGuard);
+  instance.afterEach((to) => {
+    document.title = `${to.meta.title || "Delcom Auction"} | Delcom Auction`;
+  });
+  return instance;
+};
 
-      const isAuthRoute =
-        to.path.startsWith(
-          "/auth",
-        );
-
-      if (
-        to.meta.requiresAuth &&
-        !token
-      ) {
-        return {
-          name: "Login",
-        };
-      }
-
-      if (
-        isAuthRoute &&
-        token
-      ) {
-        return {
-          name: "Home",
-        };
-      }
-
-      return true;
-    },
-  );
-
-  return router;
-}
-
-const router =
-  createAppRouter();
-
-export default router;
+export const router = createAppRouter();

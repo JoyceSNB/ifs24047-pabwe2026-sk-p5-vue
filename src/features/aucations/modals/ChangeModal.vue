@@ -1,2 +1,84 @@
-<template><div v-if="show" data-testid="change-aucation-modal" class="fixed inset-0 z-50 bg-white flex flex-col"><div class="flex justify-between p-5 border-b"><div><h3 class="font-bold">Ubah Data Lelang</h3><p class="text-xs text-slate-500">Perbarui data barang, harga awal, dan batas waktu penutupan lelang</p></div><button data-testid="close-change-modal-btn" @click="onClose">✕</button></div><form @submit.prevent="handleSave" class="flex-1 flex flex-col"><div class="p-6 space-y-4 overflow-y-auto"><input data-testid="change-aucation-title-input" v-model="title" class="w-full border rounded-xl p-3"/><textarea data-testid="change-aucation-description-input" v-model="description" class="w-full border rounded-xl p-3 min-h-48"/><div class="grid md:grid-cols-2 gap-4"><input data-testid="change-aucation-start-bid-input" type="number" v-model="startBid" class="border rounded-xl p-3"/><input data-testid="change-aucation-closed-at-input" type="datetime-local" v-model="closedAt" class="border rounded-xl p-3"/></div></div><div class="p-5 border-t flex justify-end gap-3"><button type="button" data-testid="cancel-change-modal-btn" @click="onClose">Batal</button><button data-testid="submit-change-modal-btn" :disabled="loading" class="px-5 py-2 rounded-xl bg-indigo-600 text-white">{{loading?'Menyimpan...':'Simpan Perubahan'}}</button></div></form></div></template>
-<script setup>import {ref,watch} from 'vue';import {useAucationsStore} from '../states/aucationsStore';import {showErrorDialog,toDateTimeLocal} from '../../../helpers/toolsHelper';import {toApiDateTime} from '../helpers/aucationHelper';const p=defineProps({show:Boolean,aucation:Object});const emit=defineEmits(['close','saved']);const s=useAucationsStore();const loading=ref(false),title=ref(''),description=ref(''),startBid=ref(''),closedAt=ref('');function fill(a){title.value=a?.title||'';description.value=a?.description||'';startBid.value=a?.start_bid??'';closedAt.value=toDateTimeLocal(a?.closed_at)}watch(()=>[p.show,p.aucation],([show,a])=>{if(show)fill(a)},{immediate:true});watch(()=>[s.isAucationChange,s.isAucationChanged],([c,changed])=>{if(c){loading.value=false;s.setIsAucationChange(false);if(changed){s.setIsAucationChanged(false);emit('saved');emit('close')}}});function onClose(){emit('close')}function handleSave(){if(!title.value.trim())return showErrorDialog('Judul tidak boleh kosong');if(!description.value.trim())return showErrorDialog('Deskripsi tidak boleh kosong');if(!(Number(startBid.value)>0))return showErrorDialog('Harga awal harus lebih dari 0');if(!closedAt.value)return showErrorDialog('Batas waktu penutupan wajib diisi');loading.value=true;s.asyncSetIsAucationChange(p.aucation.id,title.value.trim(),description.value.trim(),Number(startBid.value),toApiDateTime(closedAt.value))}</script>
+<script setup>
+import { ref } from "vue";
+import ModalShell from "../components/ModalShell.vue";
+import MarkdownEditor from "../components/MarkdownEditor.vue";
+import { useInput } from "../../../hooks/useInput";
+import { useAucationsStore } from "../states/aucationsStore";
+import { showErrorDialog, showSuccessDialog, toApiDateTime, toInputDateTime } from "../../../helpers/toolsHelper";
+
+const props = defineProps({
+  aucation: { type: Object, required: true },
+});
+const emit = defineEmits(["close", "saved"]);
+const store = useAucationsStore();
+const title = useInput(props.aucation.title);
+const startBid = useInput(String(props.aucation.start_bid));
+const closedAt = useInput(toInputDateTime(props.aucation.closed_at));
+const description = ref(props.aucation.description);
+const errors = ref({});
+
+const validate = () => {
+  const result = {};
+  if (!title.value.value.trim()) result.title = "Judul wajib diisi.";
+  if (!description.value.trim()) result.description = "Deskripsi wajib diisi.";
+  if (!(Number(startBid.value.value) > 0)) result.startBid = "Harga awal harus lebih dari 0.";
+  if (!closedAt.value.value) result.closedAt = "Batas waktu wajib diisi.";
+  errors.value = result;
+  return Object.keys(result).length === 0;
+};
+
+const onSubmit = async () => {
+  if (!validate()) return;
+  const success = await store.changeAucation(props.aucation.id, {
+    title: title.value.value.trim(),
+    description: description.value,
+    startBid: Number(startBid.value.value),
+    closedAt: toApiDateTime(closedAt.value.value),
+  });
+  if (!success) {
+    await showErrorDialog(store.message);
+    return;
+  }
+  await showSuccessDialog(store.message);
+  emit("saved");
+  emit("close");
+};
+</script>
+
+<template>
+  <ModalShell title="Ubah Data Lelang" title-id="change-modal-title" @close="emit('close')">
+    <form class="space-y-4" novalidate @submit.prevent="onSubmit">
+      <div>
+        <label for="change-title" class="block text-sm font-semibold text-slate-800">Judul barang</label>
+        <input id="change-title" type="text" :value="title.value.value" class="mt-1 w-full rounded-lg border border-slate-400 px-3 py-2.5" :aria-invalid="Boolean(errors.title)" @input="title.onChange" />
+        <p v-if="errors.title" class="mt-1 text-sm text-red-700">{{ errors.title }}</p>
+      </div>
+
+      <div>
+        <p class="mb-1 text-sm font-semibold text-slate-800">Deskripsi (Markdown)</p>
+        <MarkdownEditor v-model="description" label="Deskripsi barang lelang" />
+        <p v-if="errors.description" class="mt-1 text-sm text-red-700">{{ errors.description }}</p>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label for="change-start-bid" class="block text-sm font-semibold text-slate-800">Harga awal (Rp)</label>
+          <input id="change-start-bid" type="number" min="0" :value="startBid.value.value" class="mt-1 w-full rounded-lg border border-slate-400 px-3 py-2.5" :aria-invalid="Boolean(errors.startBid)" @input="startBid.onChange" />
+          <p v-if="errors.startBid" class="mt-1 text-sm text-red-700">{{ errors.startBid }}</p>
+        </div>
+        <div>
+          <label for="change-closed-at" class="block text-sm font-semibold text-slate-800">Ditutup pada</label>
+          <input id="change-closed-at" type="datetime-local" :value="closedAt.value.value" class="mt-1 w-full rounded-lg border border-slate-400 px-3 py-2.5" :aria-invalid="Boolean(errors.closedAt)" @input="closedAt.onChange" />
+          <p v-if="errors.closedAt" class="mt-1 text-sm text-red-700">{{ errors.closedAt }}</p>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" class="rounded-lg px-4 py-2.5 font-semibold text-slate-800 hover:bg-slate-100" @click="emit('close')">Batal</button>
+        <button type="submit" :disabled="store.isAucationChange" class="rounded-lg bg-indigo-950 px-5 py-2.5 font-semibold text-white hover:bg-indigo-900 disabled:opacity-70">
+          {{ store.isAucationChange ? "Menyimpan..." : "Simpan perubahan" }}
+        </button>
+      </div>
+    </form>
+  </ModalShell>
+</template>

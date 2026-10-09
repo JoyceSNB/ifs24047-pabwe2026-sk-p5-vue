@@ -1,26 +1,12 @@
-import { apiFetch } from "../../../helpers/apiHelper";
+import { apiRequest } from "../../../helpers/apiHelper";
 
-export function login(email, password) {
-  return apiFetch("/auth/login", {
-    method: "POST",
-    body: {
-      email,
-      password,
-    },
-  });
-}
+export const login = (email, password) =>
+  apiRequest("/auth/login", { method: "POST", body: { email, password } });
 
-export function register(
-  email,
-  password,
-  name,
-) {
-  return apiFetch("/auth/register", {
+export const register = (name, email, password) =>
+  apiRequest("/auth/register", {
     method: "POST",
-    body: {
-      name,
-      email,
-      password,
-    },
+    body: { name, email, password },
   });
-}
+
+export const logout = () => apiRequest("/auth/logout", { method: "POST" });

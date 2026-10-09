@@ -1,11 +1,19 @@
-import '@testing-library/jest-dom/vitest';
+import "@testing-library/jest-dom/vitest";
+import { afterEach, vi } from "vitest";
+import { enableAutoUnmount } from "@vue/test-utils";
 
-Object.defineProperty(window.HTMLImageElement.prototype, 'src', {
-  configurable: true,
-  get() {
-    return this.getAttribute('src') || '';
-  },
-  set(value) {
-    this.setAttribute('src', value);
-  },
+// Dialog SweetAlert2 dimock agar tes tidak memunculkan modal asli.
+vi.mock("sweetalert2", () => ({
+  default: { fire: vi.fn(async () => ({ isConfirmed: true })) },
+}));
+
+enableAutoUnmount(afterEach);
+
+URL.createObjectURL = vi.fn(() => "blob:preview");
+URL.revokeObjectURL = vi.fn();
+
+afterEach(() => {
+  localStorage.clear();
+  document.body.innerHTML = "";
+  vi.clearAllMocks();
 });

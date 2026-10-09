@@ -1,275 +1,84 @@
-﻿import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
-
+import { describe, expect, it } from "vitest";
 import Swal from "sweetalert2";
-
 import {
-  formatRupiah,
+  assetUrl,
   formatDate,
-  toDateTimeLocal,
-  showSuccessDialog,
-  showErrorDialog,
-  showWarningDialog,
+  formatRupiah,
+  getHighestBid,
+  getTimeLeft,
+  isAucationClosed,
   showConfirmDialog,
+  showErrorDialog,
+  showSuccessDialog,
+  toApiDateTime,
+  toInputDateTime,
 } from "./toolsHelper";
 
-describe("toolsHelper", () => {
-  let swalFireMock;
-
-  beforeEach(() => {
-    vi.restoreAllMocks();
-
-    swalFireMock = vi
-      .spyOn(Swal, "fire")
-      .mockResolvedValue({
-        isConfirmed: false,
-      });
+describe("dialog SweetAlert2", () => {
+  it("showSuccessDialog menampilkan dialog sukses", async () => {
+    await showSuccessDialog("Oke");
+    expect(Swal.fire).toHaveBeenCalledWith(expect.objectContaining({ icon: "success", text: "Oke" }));
   });
 
-  describe("formatRupiah", () => {
-    it("formats a normal number as Indonesian Rupiah", () => {
-      expect(
-        formatRupiah(200000),
-      ).toContain("200.000");
-    });
-
-    it("formats zero when value is zero", () => {
-      expect(
-        formatRupiah(0),
-      ).toContain("0");
-    });
-
-    it("formats invalid value as zero", () => {
-      expect(
-        formatRupiah("abc"),
-      ).toContain("0");
-    });
-
-    it("formats numeric string", () => {
-      expect(
-        formatRupiah("150000"),
-      ).toContain("150.000");
-    });
-
-    it("formats null as zero", () => {
-      expect(
-        formatRupiah(null),
-      ).toContain("0");
-    });
-
-    it("formats undefined as zero", () => {
-      expect(
-        formatRupiah(undefined),
-      ).toContain("0");
-    });
+  it("showErrorDialog menampilkan dialog error", async () => {
+    await showErrorDialog("Gagal");
+    expect(Swal.fire).toHaveBeenCalledWith(expect.objectContaining({ icon: "error", text: "Gagal" }));
   });
 
-  describe("formatDate", () => {
-    it("formats a valid date", () => {
-      const result = formatDate(
-        "2026-12-31T22:00:00",
-      );
+  it("showConfirmDialog mengembalikan pilihan pengguna", async () => {
+    expect(await showConfirmDialog("Yakin?")).toBe(true);
+    Swal.fire.mockResolvedValueOnce({ isConfirmed: false });
+    expect(await showConfirmDialog("Yakin?", "Hapus")).toBe(false);
+    expect(Swal.fire).toHaveBeenLastCalledWith(expect.objectContaining({ confirmButtonText: "Hapus" }));
+  });
+});
 
-      expect(result).not.toBe("-");
-      expect(result).toContain("2026");
-    });
-
-    it("returns dash for empty value", () => {
-      expect(
-        formatDate(""),
-      ).toBe("-");
-    });
-
-    it("returns dash for null value", () => {
-      expect(
-        formatDate(null),
-      ).toBe("-");
-    });
-
-    it("returns dash for undefined value", () => {
-      expect(
-        formatDate(undefined),
-      ).toBe("-");
-    });
+describe("format", () => {
+  it("formatRupiah", () => {
+    expect(formatRupiah(1500000)).toMatch(/Rp\s?1\.500\.000/);
+    expect(formatRupiah(undefined)).toMatch(/Rp\s?0/);
   });
 
-  describe("toDateTimeLocal", () => {
-    it("formats a valid datetime", () => {
-      expect(
-        toDateTimeLocal(
-          "2026-12-31T22:00:00",
-        ),
-      ).toBe(
-        "2026-12-31T22:00",
-      );
-    });
-
-    it("returns empty string for empty value", () => {
-      expect(
-        toDateTimeLocal(""),
-      ).toBe("");
-    });
-
-    it("returns empty string for null", () => {
-      expect(
-        toDateTimeLocal(null),
-      ).toBe("");
-    });
-
-    it("returns empty string for undefined", () => {
-      expect(
-        toDateTimeLocal(undefined),
-      ).toBe("");
-    });
-
-    it("pads month, date, hour and minute", () => {
-      expect(
-        toDateTimeLocal(
-          "2026-01-02T03:04:00",
-        ),
-      ).toBe(
-        "2026-01-02T03:04",
-      );
-    });
+  it("formatDate", () => {
+    expect(formatDate("2026-12-31 23:59:00")).toMatch(/2026/);
   });
 
-  describe("showSuccessDialog", () => {
-    it("shows success dialog with custom values", async () => {
-      await showSuccessDialog(
-        "Berhasil disimpan",
-        "Data berhasil disimpan",
-      );
+  it("konversi datetime API <-> input", () => {
+    expect(toApiDateTime("2026-12-31T23:59")).toBe("2026-12-31 23:59:00");
+    expect(toInputDateTime("2026-12-31 23:59:00")).toBe("2026-12-31T23:59");
+  });
+});
 
-      expect(
-        swalFireMock,
-      ).toHaveBeenCalledWith({
-        icon: "success",
-        title: "Berhasil disimpan",
-        text: "Data berhasil disimpan",
-      });
-    });
+describe("assetUrl", () => {
+  it("menangani kosong, absolut, dan relatif", () => {
+    expect(assetUrl("")).toBe("");
+    expect(assetUrl("https://x.id/a.png")).toBe("https://x.id/a.png");
+    expect(assetUrl("img/a.png")).toBe("https://open-api.delcom.org/img/a.png");
+    expect(assetUrl("/img/a.png")).toBe("https://open-api.delcom.org/img/a.png");
+  });
+});
 
-    it("uses default success dialog values", async () => {
-      await showSuccessDialog();
+describe("waktu lelang", () => {
+  const now = new Date("2026-10-07T10:00:00").getTime();
 
-      expect(
-        swalFireMock,
-      ).toHaveBeenCalledWith({
-        icon: "success",
-        title: "Berhasil",
-        text: "",
-      });
-    });
+  it("isAucationClosed", () => {
+    expect(isAucationClosed("2026-10-07 09:00:00", now)).toBe(true);
+    expect(isAucationClosed("2099-01-01 00:00:00")).toBe(false);
   });
 
-  describe("showErrorDialog", () => {
-    it("shows error dialog with custom text", async () => {
-      await showErrorDialog(
-        "Terjadi kesalahan API",
-      );
-
-      expect(
-        swalFireMock,
-      ).toHaveBeenCalledWith({
-        icon: "error",
-        title: "Gagal",
-        text: "Terjadi kesalahan API",
-      });
-    });
-
-    it("uses default error dialog text", async () => {
-      await showErrorDialog();
-
-      expect(
-        swalFireMock,
-      ).toHaveBeenCalledWith({
-        icon: "error",
-        title: "Gagal",
-        text: "Terjadi kesalahan",
-      });
-    });
+  it("getTimeLeft untuk hari, jam, menit, dan ditutup", () => {
+    expect(getTimeLeft("2026-10-09 13:00:00", now)).toBe("2 hari 3 jam lagi");
+    expect(getTimeLeft("2026-10-07 12:30:00", now)).toBe("2 jam 30 menit lagi");
+    expect(getTimeLeft("2026-10-07 10:20:00", now)).toBe("20 menit lagi");
+    expect(getTimeLeft("2026-10-07 09:00:00", now)).toBe("Ditutup");
+    expect(getTimeLeft("2099-01-01 00:00:00")).toMatch(/hari/);
   });
+});
 
-  describe("showWarningDialog", () => {
-    it("shows warning dialog with supplied text", async () => {
-      await showWarningDialog(
-        "Harap periksa kembali",
-      );
-
-      expect(
-        swalFireMock,
-      ).toHaveBeenCalledWith({
-        icon: "warning",
-        title: "Peringatan",
-        text: "Harap periksa kembali",
-      });
-    });
-
-    it("supports undefined warning text", async () => {
-      await showWarningDialog();
-
-      expect(
-        swalFireMock,
-      ).toHaveBeenCalledWith({
-        icon: "warning",
-        title: "Peringatan",
-        text: undefined,
-      });
-    });
-  });
-
-  describe("showConfirmDialog", () => {
-    it("returns true when confirmation is accepted", async () => {
-      swalFireMock.mockResolvedValueOnce({
-        isConfirmed: true,
-      });
-
-      const result =
-        await showConfirmDialog(
-          "Hapus data ini?",
-        );
-
-      expect(result).toBe(true);
-
-      expect(
-        swalFireMock,
-      ).toHaveBeenCalledWith({
-        icon: "question",
-        title: "Konfirmasi",
-        text: "Hapus data ini?",
-        showCancelButton: true,
-        confirmButtonText: "Ya",
-        cancelButtonText: "Batal",
-      });
-    });
-
-    it("returns false when confirmation is cancelled", async () => {
-      swalFireMock.mockResolvedValueOnce({
-        isConfirmed: false,
-      });
-
-      const result =
-        await showConfirmDialog(
-          "Batalkan proses?",
-        );
-
-      expect(result).toBe(false);
-
-      expect(
-        swalFireMock,
-      ).toHaveBeenCalledWith({
-        icon: "question",
-        title: "Konfirmasi",
-        text: "Batalkan proses?",
-        showCancelButton: true,
-        confirmButtonText: "Ya",
-        cancelButtonText: "Batal",
-      });
-    });
+describe("getHighestBid", () => {
+  it("mengambil nominal tertinggi dan aman untuk data id/kosong", () => {
+    expect(getHighestBid()).toBe(0);
+    expect(getHighestBid([2, 3])).toBe(0);
+    expect(getHighestBid([{ bid: 5 }, { bid: 9 }, { bid: 7 }])).toBe(9);
   });
 });

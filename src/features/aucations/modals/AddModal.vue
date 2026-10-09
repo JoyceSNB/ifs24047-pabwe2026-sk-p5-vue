@@ -1,2 +1,81 @@
-<template><div v-if="show" data-testid="add-aucation-modal" class="fixed inset-0 z-50 bg-white flex flex-col"><div class="flex justify-between p-5 border-b"><div><h3 class="font-bold">Tambah Lelang Baru</h3><p class="text-xs text-slate-500">Isi data barang, harga awal, dan batas waktu penutupan lelang</p></div><button data-testid="close-add-modal-btn" @click="onClose">✕</button></div><form @submit.prevent="handleSave" class="flex-1 flex flex-col"><div class="p-6 space-y-4 overflow-y-auto"><input data-testid="add-aucation-title-input" v-model="title" class="w-full border rounded-xl p-3" placeholder="Judul Lelang"/><div class="grid md:grid-cols-2 gap-4"><input data-testid="add-aucation-start-bid-input" type="number" v-model="startBid" class="border rounded-xl p-3" placeholder="Harga Awal"/><input data-testid="add-aucation-closed-at-input" type="datetime-local" v-model="closedAt" class="border rounded-xl p-3"/></div><MarkdownEditor v-model="description" textarea-test-id="add-aucation-description-input" placeholder="Deskripsi Markdown"/></div><div class="p-5 border-t flex justify-end gap-3"><button type="button" data-testid="cancel-add-modal-btn" @click="onClose">Batal</button><button data-testid="submit-add-modal-btn" :disabled="loading" class="px-5 py-2 rounded-xl bg-indigo-600 text-white">{{loading?'Menyimpan...':'Tambah Lelang'}}</button></div></form></div></template>
-<script setup>import {ref,watch} from 'vue';import {useAucationsStore} from '../states/aucationsStore';import {showErrorDialog} from '../../../helpers/toolsHelper';import {toApiDateTime} from '../helpers/aucationHelper';import MarkdownEditor from '../components/MarkdownEditor.vue';const props=defineProps({show:Boolean});const emit=defineEmits(['close','saved']);const s=useAucationsStore();const loading=ref(false),title=ref(''),description=ref(''),startBid=ref(''),closedAt=ref('');const onClose=()=>emit('close');const reset=()=>{title.value='';description.value='';startBid.value='';closedAt.value=''};watch(()=>props.show,v=>document.body.style.overflow=v?'hidden':'auto');watch(()=>[s.isAucationAdd,s.isAucationAdded],([a,added])=>{if(a){loading.value=false;s.setIsAucationAdd(false);if(added){s.setIsAucationAdded(false);reset();emit('saved');onClose()}}});function handleSave(){if(!title.value.trim())return showErrorDialog('Judul tidak boleh kosong');if(!description.value.trim())return showErrorDialog('Deskripsi tidak boleh kosong');if(!(Number(startBid.value)>0))return showErrorDialog('Harga awal harus lebih dari 0');if(!closedAt.value)return showErrorDialog('Batas waktu penutupan wajib diisi');if(new Date(closedAt.value)<=new Date())return showErrorDialog('Batas waktu penutupan harus lebih dari waktu sekarang');loading.value=true;s.asyncSetIsAucationAdd(title.value.trim(),description.value.trim(),Number(startBid.value),toApiDateTime(closedAt.value))}</script>
+<script setup>
+import { ref } from "vue";
+import ModalShell from "../components/ModalShell.vue";
+import MarkdownEditor from "../components/MarkdownEditor.vue";
+import { useInput } from "../../../hooks/useInput";
+import { useAucationsStore } from "../states/aucationsStore";
+import { showErrorDialog, showSuccessDialog, toApiDateTime } from "../../../helpers/toolsHelper";
+
+const emit = defineEmits(["close", "saved"]);
+const store = useAucationsStore();
+const title = useInput("");
+const startBid = useInput("");
+const closedAt = useInput("");
+const description = ref("");
+const errors = ref({});
+
+const validate = () => {
+  const result = {};
+  if (!title.value.value.trim()) result.title = "Judul wajib diisi.";
+  if (!description.value.trim()) result.description = "Deskripsi wajib diisi.";
+  if (!(Number(startBid.value.value) > 0)) result.startBid = "Harga awal harus lebih dari 0.";
+  if (!closedAt.value.value) result.closedAt = "Batas waktu wajib diisi.";
+  errors.value = result;
+  return Object.keys(result).length === 0;
+};
+
+const onSubmit = async () => {
+  if (!validate()) return;
+  const success = await store.addAucation({
+    title: title.value.value.trim(),
+    description: description.value,
+    startBid: Number(startBid.value.value),
+    closedAt: toApiDateTime(closedAt.value.value),
+  });
+  if (!success) {
+    await showErrorDialog(store.message);
+    return;
+  }
+  await showSuccessDialog(store.message);
+  emit("saved");
+  emit("close");
+};
+</script>
+
+<template>
+  <ModalShell title="Tambah Lelang Baru" title-id="add-modal-title" @close="emit('close')">
+    <form class="space-y-4" novalidate @submit.prevent="onSubmit">
+      <div>
+        <label for="add-title" class="block text-sm font-semibold text-slate-800">Judul barang</label>
+        <input id="add-title" type="text" :value="title.value.value" class="mt-1 w-full rounded-lg border border-slate-400 px-3 py-2.5" :aria-invalid="Boolean(errors.title)" @input="title.onChange" />
+        <p v-if="errors.title" class="mt-1 text-sm text-red-700">{{ errors.title }}</p>
+      </div>
+
+      <div>
+        <p class="mb-1 text-sm font-semibold text-slate-800">Deskripsi (Markdown)</p>
+        <MarkdownEditor v-model="description" label="Deskripsi barang lelang" />
+        <p v-if="errors.description" class="mt-1 text-sm text-red-700">{{ errors.description }}</p>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label for="add-start-bid" class="block text-sm font-semibold text-slate-800">Harga awal (Rp)</label>
+          <input id="add-start-bid" type="number" min="0" :value="startBid.value.value" class="mt-1 w-full rounded-lg border border-slate-400 px-3 py-2.5" :aria-invalid="Boolean(errors.startBid)" @input="startBid.onChange" />
+          <p v-if="errors.startBid" class="mt-1 text-sm text-red-700">{{ errors.startBid }}</p>
+        </div>
+        <div>
+          <label for="add-closed-at" class="block text-sm font-semibold text-slate-800">Ditutup pada</label>
+          <input id="add-closed-at" type="datetime-local" :value="closedAt.value.value" class="mt-1 w-full rounded-lg border border-slate-400 px-3 py-2.5" :aria-invalid="Boolean(errors.closedAt)" @input="closedAt.onChange" />
+          <p v-if="errors.closedAt" class="mt-1 text-sm text-red-700">{{ errors.closedAt }}</p>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" class="rounded-lg px-4 py-2.5 font-semibold text-slate-800 hover:bg-slate-100" @click="emit('close')">Batal</button>
+        <button type="submit" :disabled="store.isAucationAdd" class="rounded-lg bg-indigo-950 px-5 py-2.5 font-semibold text-white hover:bg-indigo-900 disabled:opacity-70">
+          {{ store.isAucationAdd ? "Menyimpan..." : "Simpan lelang" }}
+        </button>
+      </div>
+    </form>
+  </ModalShell>
+</template>

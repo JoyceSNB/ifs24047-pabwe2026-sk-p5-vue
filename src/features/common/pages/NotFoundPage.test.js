@@ -1,1 +1,12 @@
-import {describe,it,expect} from 'vitest';import {render} from '@testing-library/vue';import {createMemoryHistory} from 'vue-router';import {createAppRouter} from '../../../router';import C from './NotFoundPage.vue';describe('NotFoundPage',()=>it('shows 404',async()=>{const rtr=createAppRouter(createMemoryHistory());await rtr.push('/x');await rtr.isReady();expect(render(C,{global:{plugins:[rtr]}}).getByText('404')).toBeTruthy()}));
+import { describe, expect, it } from "vitest";
+import NotFoundPage from "./NotFoundPage.vue";
+import { renderWithProviders } from "../../../test-utils";
+
+describe("NotFoundPage", () => {
+  it("menampilkan pesan 404 dan tautan beranda", async () => {
+    const { wrapper } = await renderWithProviders(NotFoundPage);
+    expect(wrapper.find("h1").text()).toBe("Halaman tidak ditemukan");
+    expect(wrapper.text()).toContain("404");
+    expect(wrapper.find("a").attributes("href")).toBe("/");
+  });
+});

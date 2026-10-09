@@ -1,216 +1,120 @@
 import { defineStore } from "pinia";
+import { ref } from "vue";
+import * as aucationApi from "../api/aucationApi";
 
-import * as api from "../api/aucationApi";
+export const useAucationsStore = defineStore("aucations", () => {
+  const aucations = ref([]);
+  const aucation = ref(null);
+  const isAucation = ref(false);
 
-export const useAucationsStore =
-  defineStore("aucations", {
-    state: () => ({
-      aucations: [],
-      aucation: null,
-      loading: false,
-      error: null,
+  const isAucationAdd = ref(false);
+  const isAucationAdded = ref(false);
+  const isAucationChange = ref(false);
+  const isAucationChanged = ref(false);
+  const isAucationChangeCover = ref(false);
+  const isAucationChangedCover = ref(false);
+  const isAucationDelete = ref(false);
+  const isAucationDeleted = ref(false);
+  const isBidAdd = ref(false);
+  const isBidAdded = ref(false);
+  const isBidDelete = ref(false);
+  const isBidDeleted = ref(false);
+  const isAucationDeleteAll = ref(false);
+  const isAucationDeletedAll = ref(false);
 
-      isAucationAdd: false,
-      isAucationAdded: false,
+  const message = ref("");
+  const errors = ref({});
 
-      isAucationChange: false,
-      isAucationChanged: false,
+  const finish = (response) => {
+    message.value = response.message;
+    errors.value = response.data?.field || {};
+    return response.status === "success";
+  };
 
-      isBidAdd: false,
-      isBidAdded: false,
-    }),
+  /** Jalankan mutasi dan lacak status proses + status berhasil. */
+  async function mutate(loading, done, request) {
+    loading.value = true;
+    done.value = false;
+    const success = finish(await request());
+    done.value = success;
+    loading.value = false;
+    return success;
+  }
 
-    actions: {
-      setIsAucationAdd(value) {
-        this.isAucationAdd = value;
-      },
+  async function fetchAucations(filters = {}) {
+    isAucation.value = true;
+    const response = await aucationApi.getAucations(filters);
+    if (finish(response)) aucations.value = response.data.aucations;
+    isAucation.value = false;
+  }
 
-      setIsAucationAdded(value) {
-        this.isAucationAdded = value;
-      },
+  async function fetchAucation(id) {
+    isAucation.value = true;
+    const response = await aucationApi.getAucation(id);
+    // Data lama dipertahankan selama memuat ulang agar halaman tidak berkedip.
+    aucation.value = finish(response) ? response.data.aucation : null;
+    isAucation.value = false;
+  }
 
-      setIsAucationChange(value) {
-        this.isAucationChange =
-          value;
-      },
+  const addAucation = (payload) =>
+    mutate(isAucationAdd, isAucationAdded, () =>
+      aucationApi.addAucation(payload)
+    );
 
-      setIsAucationChanged(value) {
-        this.isAucationChanged =
-          value;
-      },
+  const changeAucation = (id, payload) =>
+    mutate(isAucationChange, isAucationChanged, () =>
+      aucationApi.changeAucation(id, payload)
+    );
 
-      setIsBidAdd(value) {
-        this.isBidAdd = value;
-      },
+  const changeCover = (id, file) =>
+    mutate(isAucationChangeCover, isAucationChangedCover, () =>
+      aucationApi.changeCover(id, file)
+    );
 
-      setIsBidAdded(value) {
-        this.isBidAdded = value;
-      },
+  const deleteAucation = (id) =>
+    mutate(isAucationDelete, isAucationDeleted, () =>
+      aucationApi.deleteAucation(id)
+    );
 
-      async asyncGetAucations(
-        params = {},
-      ) {
-        this.loading = true;
-        this.error = null;
+  const addBid = (id, bid) =>
+    mutate(isBidAdd, isBidAdded, () => aucationApi.addBid(id, bid));
 
-        try {
-          const response =
-            await api.getAucations(
-              params,
-            );
+  const deleteBid = (id) =>
+    mutate(isBidDelete, isBidDeleted, () => aucationApi.deleteBid(id));
 
-          const data =
-            response?.data;
+  const deleteAllAucations = () =>
+    mutate(isAucationDeleteAll, isAucationDeletedAll, () =>
+      aucationApi.deleteAllAucations()
+    );
 
-          if (
-            Array.isArray(data)
-          ) {
-            this.aucations = data;
-          } else if (
-            Array.isArray(
-              data?.aucations,
-            )
-          ) {
-            this.aucations =
-              data.aucations;
-          } else if (
-            Array.isArray(
-              response?.aucations,
-            )
-          ) {
-            this.aucations =
-              response.aucations;
-          } else {
-            this.aucations = [];
-          }
-
-          return response;
-        } catch (error) {
-          this.error = error;
-          throw error;
-        } finally {
-          this.loading = false;
-        }
-      },
-
-      async asyncGetAucation(id) {
-        this.loading = true;
-        this.error = null;
-
-        try {
-          const response =
-            await api.getAucation(id);
-
-          this.aucation =
-            response?.data ??
-            response?.aucation ??
-            response;
-
-          return response;
-        } catch (error) {
-          this.error = error;
-          throw error;
-        } finally {
-          this.loading = false;
-        }
-      },
-
-      async asyncSetIsAucationAdd(
-        title,
-        description,
-        startBid,
-        closedAt,
-      ) {
-        this.isAucationAdded = false;
-        this.error = null;
-
-        try {
-          const response =
-            await api.addAucation(
-              title,
-              description,
-              startBid,
-              closedAt,
-            );
-
-          this.isAucationAdded =
-            true;
-
-          return response;
-        } catch (error) {
-          this.error = error;
-          return null;
-        } finally {
-          this.isAucationAdd =
-            true;
-        }
-      },
-
-      async asyncSetIsAucationChange(
-        id,
-        title,
-        description,
-        startBid,
-        closedAt,
-      ) {
-        this.isAucationChanged =
-          false;
-        this.error = null;
-
-        try {
-          const response =
-            await api.updateAucation(
-              id,
-              title,
-              description,
-              startBid,
-              closedAt,
-            );
-
-          this.isAucationChanged =
-            true;
-
-          return response;
-        } catch (error) {
-          this.error = error;
-          return null;
-        } finally {
-          this.isAucationChange =
-            true;
-        }
-      },
-
-      async asyncSetIsBidAdd(
-        id,
-        amount,
-      ) {
-        this.isBidAdded = false;
-        this.error = null;
-
-        try {
-          const response =
-            await api.addBid(
-              id,
-              amount,
-            );
-
-          this.isBidAdded = true;
-
-          return response;
-        } catch (error) {
-          this.error = error;
-          return null;
-        } finally {
-          this.isBidAdd = true;
-        }
-      },
-
-      async deleteBid(id) {
-        return api.deleteBid(id);
-      },
-
-      async deleteAucation(id) {
-        return api.deleteAucation(id);
-      },
-    },
-  });
+  return {
+    aucations,
+    aucation,
+    isAucation,
+    isAucationAdd,
+    isAucationAdded,
+    isAucationChange,
+    isAucationChanged,
+    isAucationChangeCover,
+    isAucationChangedCover,
+    isAucationDelete,
+    isAucationDeleted,
+    isBidAdd,
+    isBidAdded,
+    isBidDelete,
+    isBidDeleted,
+    isAucationDeleteAll,
+    isAucationDeletedAll,
+    message,
+    errors,
+    fetchAucations,
+    fetchAucation,
+    addAucation,
+    changeAucation,
+    changeCover,
+    deleteAucation,
+    addBid,
+    deleteBid,
+    deleteAllAucations,
+  };
+});

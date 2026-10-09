@@ -1,386 +1,61 @@
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
-
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/vue";
-
-import {
-  createRouter,
-  createMemoryHistory,
-} from "vue-router";
-
-import {
-  createPinia,
-  setActivePinia,
-} from "pinia";
-
+import { describe, expect, it, vi } from "vitest";
+import { flushPromises } from "@vue/test-utils";
 import LoginPage from "./LoginPage.vue";
+import { renderWithProviders } from "../../../test-utils";
+import * as authApi from "../api/authApi";
+import Swal from "sweetalert2";
 
-import { useAuthStore } from "../states/authStore";
-
-vi.mock("../../../helpers/toolsHelper", () => ({
-  showErrorDialog: vi.fn(),
-}));
-
-import * as toolsHelper from "../../../helpers/toolsHelper";
-
-function createTestRouter() {
-  return createRouter({
-    history: createMemoryHistory(),
-    routes: [
-      {
-        path: "/auth/login",
-        component: {
-          template: "<div>Login</div>",
-        },
-      },
-      {
-        path: "/auth/register",
-        component: {
-          template: "<div>Register</div>",
-        },
-      },
-      {
-        path: "/",
-        component: {
-          template: "<div>Dashboard</div>",
-        },
-      },
-    ],
-  });
-}
-
-async function renderLoginPage() {
-  const pinia = createPinia();
-
-  setActivePinia(pinia);
-
-  const router = createTestRouter();
-
-  await router.push("/auth/login");
-  await router.isReady();
-
-  const result = render(LoginPage, {
-    global: {
-      plugins: [
-        pinia,
-        router,
-      ],
-    },
-  });
-
-  return {
-    ...result,
-    pinia,
-    router,
-    auth: useAuthStore(),
-  };
-}
-
-beforeEach(() => {
-  vi.clearAllMocks();
-});
+vi.mock("../api/authApi");
+const routes = [
+  { path: "/", component: { template: "<div>home</div>" } },
+  { path: "/auth/login", component: LoginPage },
+  { path: "/auth/register", component: { template: "<div>register</div>" } },
+];
 
 describe("LoginPage", () => {
-  it("renders login form", async () => {
-    await renderLoginPage();
-
-    expect(
-      screen.getByText(
-        "Masuk ke Delcom Auction",
-      ),
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByPlaceholderText(
-        "Username",
-      ),
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByPlaceholderText(
-        "Password",
-      ),
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByRole("button", {
-        name: "Masuk",
-      }),
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByRole("link", {
-        name: "Daftar",
-      }),
-    ).toHaveAttribute(
-      "href",
-      "/auth/register",
-    );
+  it("memiliki selector yang dibutuhkan penilaian", async () => {
+    const { wrapper } = await renderWithProviders(LoginPage, { routes });
+    expect(wrapper.find("#login-email-input").exists()).toBe(true);
+    expect(wrapper.find("#login-password-input").exists()).toBe(true);
+    expect(wrapper.find("#login-submit-button").exists()).toBe(true);
+    expect(wrapper.find("h1").text()).toBe("Masuk");
   });
 
-  it("shows error when username and password are empty", async () => {
-    await renderLoginPage();
-
-    await fireEvent.click(
-      screen.getByRole("button", {
-        name: "Masuk",
-      }),
-    );
-
-    expect(
-      toolsHelper.showErrorDialog,
-    ).toHaveBeenCalledWith(
-      "Username dan password wajib diisi",
-    );
+  it("menampilkan error validasi saat form kosong", async () => {
+    const { wrapper } = await renderWithProviders(LoginPage, { routes });
+    await wrapper.find("form").trigger("submit");
+    expect(wrapper.text()).toContain("Email wajib diisi.");
+    expect(wrapper.text()).toContain("Kata sandi wajib diisi.");
+    expect(authApi.login).not.toHaveBeenCalled();
   });
 
-  it("shows error when username is empty", async () => {
-    const context =
-      await renderLoginPage();
-
-    const signInSpy = vi.spyOn(
-      context.auth,
-      "signIn",
-    );
-
-    await fireEvent.update(
-      screen.getByPlaceholderText(
-        "Password",
-      ),
-      "password123",
-    );
-
-    await fireEvent.submit(
-      context.container.querySelector(
-        "form",
-      ),
-    );
-
-    expect(
-      toolsHelper.showErrorDialog,
-    ).toHaveBeenCalledWith(
-      "Username dan password wajib diisi",
-    );
-
-    expect(
-      signInSpy,
-    ).not.toHaveBeenCalled();
+  it("menampilkan dialog error saat login gagal", async () => {
+    authApi.login.mockResolvedValue({ status: "fail", message: "Akun salah" });
+    const { wrapper, router } = await renderWithProviders(LoginPage, { routes });
+    await wrapper.find("#login-email-input").setValue(" a@b.c ");
+    await wrapper.find("#login-password-input").setValue("rahasia");
+    await wrapper.find("form").trigger("submit");
+    await flushPromises();
+    expect(authApi.login).toHaveBeenCalledWith("a@b.c", "rahasia");
+    expect(Swal.fire).toHaveBeenCalledWith(expect.objectContaining({ icon: "error", text: "Akun salah" }));
+    expect(router.currentRoute.value.path).toBe("/");
   });
 
-  it("shows error when password is empty", async () => {
-    const context =
-      await renderLoginPage();
-
-    const signInSpy = vi.spyOn(
-      context.auth,
-      "signIn",
-    );
-
-    await fireEvent.update(
-      screen.getByPlaceholderText(
-        "Username",
-      ),
-      "budi",
-    );
-
-    await fireEvent.submit(
-      context.container.querySelector(
-        "form",
-      ),
-    );
-
-    expect(
-      toolsHelper.showErrorDialog,
-    ).toHaveBeenCalledWith(
-      "Username dan password wajib diisi",
-    );
-
-    expect(
-      signInSpy,
-    ).not.toHaveBeenCalled();
+  it("berpindah ke dashboard saat login berhasil", async () => {
+    authApi.login.mockResolvedValue({ status: "success", message: "Masuk", data: { token: "t" } });
+    const { wrapper, router } = await renderWithProviders(LoginPage, { routes, route: "/auth/login" });
+    await wrapper.find("#login-email-input").setValue("a@b.c");
+    await wrapper.find("#login-password-input").setValue("rahasia");
+    await wrapper.find("form").trigger("submit");
+    await flushPromises();
+    expect(Swal.fire).toHaveBeenCalledWith(expect.objectContaining({ icon: "success" }));
+    expect(router.currentRoute.value.path).toBe("/");
   });
 
-  it("logs in successfully and navigates to dashboard", async () => {
-    const context =
-      await renderLoginPage();
-
-    const signInSpy = vi
-      .spyOn(context.auth, "signIn")
-      .mockResolvedValue({
-        data: {
-          token: "token-123",
-          user: {
-            id: 1,
-            name: "Budi",
-          },
-        },
-      });
-
-    await fireEvent.update(
-      screen.getByPlaceholderText(
-        "Username",
-      ),
-      "budi",
-    );
-
-    await fireEvent.update(
-      screen.getByPlaceholderText(
-        "Password",
-      ),
-      "password123",
-    );
-
-    await fireEvent.click(
-      screen.getByRole("button", {
-        name: "Masuk",
-      }),
-    );
-
-    await waitFor(() => {
-      expect(
-        signInSpy,
-      ).toHaveBeenCalledWith(
-        "budi",
-        "password123",
-      );
-    });
-
-    await waitFor(() => {
-      expect(
-        context.router.currentRoute.value.path,
-      ).toBe("/");
-    });
-
-    expect(
-      toolsHelper.showErrorDialog,
-    ).not.toHaveBeenCalled();
-  });
-
-  it("shows processing state while login is pending", async () => {
-    const context =
-      await renderLoginPage();
-
-    let resolveLogin;
-
-    const pendingLogin =
-      new Promise((resolve) => {
-        resolveLogin = resolve;
-      });
-
-    const signInSpy = vi
-      .spyOn(context.auth, "signIn")
-      .mockReturnValue(
-        pendingLogin,
-      );
-
-    await fireEvent.update(
-      screen.getByPlaceholderText(
-        "Username",
-      ),
-      "budi",
-    );
-
-    await fireEvent.update(
-      screen.getByPlaceholderText(
-        "Password",
-      ),
-      "password123",
-    );
-
-    await fireEvent.click(
-      screen.getByRole("button", {
-        name: "Masuk",
-      }),
-    );
-
-    await waitFor(() => {
-      expect(
-        signInSpy,
-      ).toHaveBeenCalledWith(
-        "budi",
-        "password123",
-      );
-    });
-
-    expect(
-      screen.getByRole("button", {
-        name: "Memproses...",
-      }),
-    ).toBeDisabled();
-
-    resolveLogin({
-      data: {
-        token: "token-123",
-        user: {
-          id: 1,
-          name: "Budi",
-        },
-      },
-    });
-
-    await waitFor(() => {
-      expect(
-        context.router.currentRoute.value.path,
-      ).toBe("/");
-    });
-  });
-
-  it("shows API error when login fails", async () => {
-    const context =
-      await renderLoginPage();
-
-    const signInError =
-      new Error(
-        "Username atau password salah",
-      );
-
-    vi.spyOn(
-      context.auth,
-      "signIn",
-    ).mockRejectedValue(
-      signInError,
-    );
-
-    await fireEvent.update(
-      screen.getByPlaceholderText(
-        "Username",
-      ),
-      "budi",
-    );
-
-    await fireEvent.update(
-      screen.getByPlaceholderText(
-        "Password",
-      ),
-      "wrong-password",
-    );
-
-    await fireEvent.click(
-      screen.getByRole("button", {
-        name: "Masuk",
-      }),
-    );
-
-    await waitFor(() => {
-      expect(
-        toolsHelper.showErrorDialog,
-      ).toHaveBeenCalledWith(
-        "Username atau password salah",
-      );
-    });
-
-    expect(
-      context.router.currentRoute.value.path,
-    ).toBe("/auth/login");
+  it("menonaktifkan tombol saat proses login berjalan", async () => {
+    const { wrapper } = await renderWithProviders(LoginPage, { routes, state: { auth: { isAuthLogin: true } } });
+    const button = wrapper.find("#login-submit-button");
+    expect(button.attributes("disabled")).toBeDefined();
+    expect(button.text()).toBe("Memproses...");
   });
 });

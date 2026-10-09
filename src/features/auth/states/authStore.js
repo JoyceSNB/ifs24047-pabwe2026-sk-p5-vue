@@ -1,82 +1,69 @@
 import { defineStore } from "pinia";
-
-import {
-  login,
-  register,
-} from "../api/authApi";
-
+import { computed, ref } from "vue";
+import * as authApi from "../api/authApi";
 import {
   getAccessToken,
   putAccessToken,
+  removeAccessToken,
 } from "../../../helpers/apiHelper";
 
-export const useAuthStore = defineStore("auth", {
-  state: () => ({
-    token: getAccessToken(),
+export const useAuthStore = defineStore("auth", () => {
+  const token = ref(getAccessToken());
+  const isAuthLogin = ref(false);
+  const isAuthRegister = ref(false);
+  const isAuthLogout = ref(false);
+  const message = ref("");
+  const errors = ref({});
 
-    user: JSON.parse(
-      localStorage.getItem("delcom_user") || "null",
-    ),
+  const isAuthenticated = computed(() => Boolean(token.value));
 
-    loading: false,
-  }),
+  const finish = (response) => {
+    message.value = response.message;
+    errors.value = response.data?.field || {};
+    return response.status === "success";
+  };
 
-  getters: {
-    isAuthenticated: (state) => !!state.token,
-  },
+  async function login(email, password) {
+    isAuthLogin.value = true;
+    const response = await authApi.login(email, password);
+    const success = finish(response);
+    if (success) {
+      putAccessToken(response.data.token);
+      token.value = response.data.token;
+    }
+    isAuthLogin.value = false;
+    return success;
+  }
 
-  actions: {
-    async signIn(username, password) {
-      this.loading = true;
+  async function register(name, email, password) {
+    isAuthRegister.value = true;
+    const response = await authApi.register(name, email, password);
+    const success = finish(response);
+    isAuthRegister.value = false;
+    return success;
+  }
 
-      try {
-        const response = await login(
-          username,
-          password,
-        );
+  async function logout() {
+    isAuthLogout.value = true;
+    const response = await authApi.logout();
+    const success = finish(response);
+    // Token lokal selalu dibersihkan agar pengguna bisa keluar meski API gagal.
+    removeAccessToken();
+    token.value = null;
+    isAuthLogout.value = false;
+    return success;
+  }
 
-        this.token =
-          response?.data?.token ??
-          response?.token ??
-          null;
-
-        this.user =
-          response?.data?.user ??
-          response?.user ??
-          null;
-
-        putAccessToken(this.token);
-
-        if (this.user) {
-          localStorage.setItem(
-            "delcom_user",
-            JSON.stringify(this.user),
-          );
-        }
-
-        return response;
-      } finally {
-        this.loading = false;
-      }
-    },
-
-    async signUp(username, password, name) {
-      return register(
-        username,
-        password,
-        name,
-      );
-    },
-
-    logout() {
-      this.token = null;
-      this.user = null;
-
-      putAccessToken(null);
-
-      localStorage.removeItem(
-        "delcom_user",
-      );
-    },
-  },
+  return {
+    token,
+    isAuthenticated,
+    isAuthLogin,
+    isAuthRegister,
+    isAuthLogout,
+    message,
+    errors,
+    login,
+    register,
+    logout,
+  };
 });

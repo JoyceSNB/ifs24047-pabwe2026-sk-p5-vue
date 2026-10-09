@@ -1,380 +1,54 @@
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
-
-import {
-  fireEvent,
-  render,
-  screen,
-} from "@testing-library/vue";
-
-import {
-  createPinia,
-  setActivePinia,
-} from "pinia";
-
-import {
-  createRouter,
-  createMemoryHistory,
-} from "vue-router";
-
+import { describe, expect, it, vi } from "vitest";
+import { flushPromises } from "@vue/test-utils";
 import NavbarComponent from "./NavbarComponent.vue";
+import { renderWithProviders } from "../../../test-utils";
+import * as authApi from "../../auth/api/authApi";
+import Swal from "sweetalert2";
 
-import {
-  useAuthStore,
-} from "../../auth/states/authStore";
+vi.mock("../../auth/api/authApi");
+const routes = [
+  { path: "/", component: { template: "<div />" } },
+  { path: "/profile", component: { template: "<div />" } },
+  { path: "/auth/login", component: { template: "<div />" } },
+];
 
-function createTestRouter() {
-  const router =
-    createRouter({
-      history:
-        createMemoryHistory(),
+describe("NavbarComponent", () => {
+  it("menampilkan placeholder saat profil belum dimuat", async () => {
+    const { wrapper } = await renderWithProviders(NavbarComponent, { routes });
+    expect(wrapper.find('[data-testid="navbar-name"]').text()).toBe("Memuat...");
+    expect(wrapper.find("img").exists()).toBe(false);
+  });
 
-      routes: [
-        {
-          path: "/",
-          component: {
-            template:
-              "<div>Home</div>",
-          },
-        },
-
-        {
-          path: "/auth/login",
-          component: {
-            template:
-              "<div>Login</div>",
-          },
-        },
-
-        {
-          path: "/profile",
-          component: {
-            template:
-              "<div>Profile</div>",
-          },
-        },
-      ],
+  it("menampilkan identitas akun aktif beserta foto", async () => {
+    const { wrapper } = await renderWithProviders(NavbarComponent, {
+      routes,
+      state: { users: { profile: { name: "Budi", email: "b@x.id", photo: "img/b.png" } } },
     });
+    expect(wrapper.find('[data-testid="navbar-name"]').text()).toBe("Budi");
+    expect(wrapper.find("img").attributes("src")).toBe("https://open-api.delcom.org/img/b.png");
+  });
 
-  return router;
-}
+  it("emit toggle-sidebar dari tombol menu", async () => {
+    const { wrapper } = await renderWithProviders(NavbarComponent, { routes });
+    await wrapper.find('button[aria-label="Buka menu navigasi"]').trigger("click");
+    expect(wrapper.emitted("toggle-sidebar")).toHaveLength(1);
+  });
 
-function renderNavbar(
-  user = null,
-) {
-  const pinia =
-    createPinia();
+  it("logout setelah konfirmasi", async () => {
+    authApi.logout.mockResolvedValue({ status: "success", message: "bye" });
+    const { wrapper, router } = await renderWithProviders(NavbarComponent, { routes });
+    await wrapper.findAll("button").find((b) => b.text().includes("Keluar")).trigger("click");
+    await flushPromises();
+    expect(authApi.logout).toHaveBeenCalled();
+    expect(router.currentRoute.value.path).toBe("/auth/login");
+  });
 
-  setActivePinia(
-    pinia,
-  );
-
-  const auth =
-    useAuthStore();
-
-  auth.user = user;
-
-  const router =
-    createTestRouter();
-
-  return render(
-    NavbarComponent,
-    {
-      global: {
-        plugins: [
-          pinia,
-          router,
-        ],
-      },
-    },
-  );
-}
-
-describe(
-  "NavbarComponent",
-  () => {
-    beforeEach(() => {
-      vi.restoreAllMocks();
-
-      localStorage.clear();
-    });
-
-    it(
-      "renders brand",
-      () => {
-        renderNavbar();
-
-        expect(
-          screen.getByText(
-            "Delcom Auction",
-          ),
-        ).toBeTruthy();
-      },
-    );
-
-    it(
-      "renders user name when user has name",
-      () => {
-        renderNavbar({
-          name: "Budi",
-          username: "budi123",
-        });
-
-        expect(
-          screen.getByText(
-            "Budi",
-          ),
-        ).toBeTruthy();
-
-        expect(
-          screen.queryByText(
-            "budi123",
-          ),
-        ).toBeNull();
-      },
-    );
-
-    it(
-      "uses username when user has no name",
-      () => {
-        renderNavbar({
-          username:
-            "budi123",
-        });
-
-        expect(
-          screen.getByText(
-            "budi123",
-          ),
-        ).toBeTruthy();
-      },
-    );
-
-    it(
-      "uses default user name when user is null",
-      () => {
-        renderNavbar(null);
-
-        expect(
-          screen.getByText(
-            "Pengguna",
-          ),
-        ).toBeTruthy();
-      },
-    );
-
-    it(
-      "uses default user name when user is undefined",
-      () => {
-        renderNavbar(
-          undefined,
-        );
-
-        expect(
-          screen.getByText(
-            "Pengguna",
-          ),
-        ).toBeTruthy();
-      },
-    );
-
-    it(
-      "emits toggle-sidebar when mobile menu button is clicked",
-      async () => {
-        const pinia =
-          createPinia();
-
-        setActivePinia(
-          pinia,
-        );
-
-        const router =
-          createTestRouter();
-
-        const {
-          emitted,
-        } =
-          render(
-            NavbarComponent,
-            {
-              global: {
-                plugins: [
-                  pinia,
-                  router,
-                ],
-              },
-            },
-          );
-
-        const menuButton =
-          screen.getByTestId(
-            "toggle-sidebar-btn",
-          );
-
-        expect(
-          menuButton,
-        ).toBeTruthy();
-
-        await fireEvent.click(
-          menuButton,
-        );
-
-        expect(
-          emitted(
-            "toggle-sidebar",
-          ),
-        ).toBeTruthy();
-
-        expect(
-          emitted(
-            "toggle-sidebar",
-          ),
-        ).toHaveLength(1);
-      },
-    );
-
-    it(
-      "calls auth logout when Keluar is clicked",
-      async () => {
-        const pinia =
-          createPinia();
-
-        setActivePinia(
-          pinia,
-        );
-
-        const auth =
-          useAuthStore();
-
-        auth.user = {
-          name: "Budi",
-        };
-
-        const logoutSpy =
-          vi.spyOn(
-            auth,
-            "logout",
-          );
-
-        const router =
-          createTestRouter();
-
-        const pushSpy =
-          vi.spyOn(
-            router,
-            "push",
-          );
-
-        render(
-          NavbarComponent,
-          {
-            global: {
-              plugins: [
-                pinia,
-                router,
-              ],
-            },
-          },
-        );
-
-        await fireEvent.click(
-          screen.getByRole(
-            "button",
-            {
-              name: "Keluar",
-            },
-          ),
-        );
-
-        expect(
-          logoutSpy,
-        ).toHaveBeenCalledTimes(
-          1,
-        );
-
-        expect(
-          pushSpy,
-        ).toHaveBeenCalledWith(
-          "/auth/login",
-        );
-      },
-    );
-
-    it(
-      "clears authentication state after logout",
-      async () => {
-        const pinia =
-          createPinia();
-
-        setActivePinia(
-          pinia,
-        );
-
-        const auth =
-          useAuthStore();
-
-        auth.token =
-          "test-token";
-
-        auth.user = {
-          name: "Budi",
-        };
-
-        const router =
-          createTestRouter();
-
-        render(
-          NavbarComponent,
-          {
-            global: {
-              plugins: [
-                pinia,
-                router,
-              ],
-            },
-          },
-        );
-
-        await fireEvent.click(
-          screen.getByRole(
-            "button",
-            {
-              name: "Keluar",
-            },
-          ),
-        );
-
-        expect(
-          auth.token,
-        ).toBeNull();
-
-        expect(
-          auth.user,
-        ).toBeNull();
-      },
-    );
-
-    it(
-      "renders logout button",
-      () => {
-        renderNavbar({
-          name: "Budi",
-        });
-
-        expect(
-          screen.getByRole(
-            "button",
-            {
-              name: "Keluar",
-            },
-          ),
-        ).toBeTruthy();
-      },
-    );
-  },
-);
+  it("tidak logout bila konfirmasi dibatalkan", async () => {
+    Swal.fire.mockResolvedValueOnce({ isConfirmed: false });
+    const { wrapper, router } = await renderWithProviders(NavbarComponent, { routes });
+    await wrapper.findAll("button").find((b) => b.text().includes("Keluar")).trigger("click");
+    await flushPromises();
+    expect(authApi.logout).not.toHaveBeenCalled();
+    expect(router.currentRoute.value.path).toBe("/");
+  });
+});

@@ -8,7 +8,7 @@ import { showErrorDialog, showSuccessDialog } from "../../../helpers/toolsHelper
 const router = useRouter();
 const authStore = useAuthStore();
 const email = useInput("");
-const password = useInput("");
+const kataSandi = useInput("");
 const errors = ref({});
 
 const isLoading = computed(() => authStore.isAuthLogin);
@@ -16,14 +16,14 @@ const isLoading = computed(() => authStore.isAuthLogin);
 const validate = () => {
   const result = {};
   if (!email.value.value.trim()) result.email = "Email wajib diisi.";
-  if (!password.value.value) result.password = "Kata sandi wajib diisi.";
+  if (!kataSandi.value.value) result.password = "Kata sandi wajib diisi.";
   errors.value = result;
   return Object.keys(result).length === 0;
 };
 
 const onSubmit = async () => {
   if (!validate()) return;
-  const success = await authStore.login(email.value.value.trim(), password.value.value);
+  const success = await authStore.login(email.value.value.trim(), kataSandi.value.value);
   if (!success) {
     await showErrorDialog(authStore.message);
     return;
@@ -60,11 +60,11 @@ const onSubmit = async () => {
           id="login-password-input"
           type="password"
           autocomplete="current-password"
-          :value="password.value.value"
+          :value="kataSandi.value.value"
           :aria-invalid="Boolean(errors.password)"
           :aria-describedby="errors.password ? 'login-password-error' : undefined"
           class="mt-1 w-full rounded-lg border border-slate-400 bg-white px-3 py-2.5 text-slate-900 focus:border-indigo-700"
-          @input="password.onChange"
+          @input="kataSandi.onChange"
         />
         <p v-if="errors.password" id="login-password-error" class="mt-1 text-sm text-red-700">{{ errors.password }}</p>
       </div>

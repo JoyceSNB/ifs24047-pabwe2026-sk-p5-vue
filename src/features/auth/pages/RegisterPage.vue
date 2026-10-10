@@ -9,7 +9,7 @@ const router = useRouter();
 const authStore = useAuthStore();
 const name = useInput("");
 const email = useInput("");
-const password = useInput("");
+const kataSandi = useInput("");
 const confirmation = useInput("");
 const errors = ref({});
 
@@ -19,8 +19,8 @@ const validate = () => {
   const result = {};
   if (!name.value.value.trim()) result.name = "Nama wajib diisi.";
   if (!email.value.value.trim()) result.email = "Email wajib diisi.";
-  if (password.value.value.length < 6) result.password = "Kata sandi minimal 6 karakter.";
-  if (confirmation.value.value !== password.value.value) result.confirmation = "Konfirmasi kata sandi tidak sama.";
+  if (kataSandi.value.value.length < 6) result.password = "Kata sandi minimal 6 karakter.";
+  if (confirmation.value.value !== kataSandi.value.value) result.confirmation = "Konfirmasi kata sandi tidak sama.";
   errors.value = result;
   return Object.keys(result).length === 0;
 };
@@ -30,7 +30,7 @@ const onSubmit = async () => {
   const success = await authStore.register(
     name.value.value.trim(),
     email.value.value.trim(),
-    password.value.value
+    kataSandi.value.value
   );
   if (!success) {
     await showErrorDialog(authStore.message);
@@ -43,7 +43,7 @@ const onSubmit = async () => {
 const fields = [
   { id: "register-name-input", key: "name", label: "Nama lengkap", type: "text", auto: "name", model: name },
   { id: "register-email-input", key: "email", label: "Email", type: "email", auto: "email", model: email },
-  { id: "register-password-input", key: "password", label: "Kata sandi", type: "password", auto: "new-password", model: password },
+  { id: "register-password-input", key: "password", label: "Kata sandi", type: "password", auto: "new-password", model: kataSandi },
   { id: "register-confirmation-input", key: "confirmation", label: "Ulangi kata sandi", type: "password", auto: "new-password", model: confirmation },
 ];
 </script>

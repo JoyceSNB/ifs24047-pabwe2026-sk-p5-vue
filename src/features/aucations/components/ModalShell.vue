@@ -14,13 +14,13 @@ onMounted(() => panel.value.focus());
 
 <template>
   <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 sm:items-center sm:p-4" @click.self="emit('close')">
-    <div
+    <dialog
+      open
       ref="panel"
-      role="dialog"
       aria-modal="true"
       :aria-labelledby="titleId"
       tabindex="-1"
-      class="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white p-6 shadow-xl sm:max-w-xl sm:rounded-2xl"
+      class="static m-0 max-h-[92vh] w-full max-w-full overflow-y-auto rounded-t-2xl border-0 bg-white p-6 text-slate-900 shadow-xl sm:max-w-xl sm:rounded-2xl"
       @keydown.esc="emit('close')"
     >
       <div class="mb-5 flex items-start justify-between gap-4">
@@ -30,6 +30,6 @@ onMounted(() => panel.value.focus());
         </button>
       </div>
       <slot />
-    </div>
+    </dialog>
   </div>
 </template>

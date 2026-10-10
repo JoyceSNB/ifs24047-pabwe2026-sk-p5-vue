@@ -15,7 +15,8 @@ export async function apiRequest(
   { method = "GET", body, formData, params } = {}
 ) {
   const query = new URLSearchParams(params).toString();
-  const url = `${DELCOM_BASEURL}${path}${query ? `?${query}` : ""}`;
+  const queryString = query ? `?${query}` : "";
+  const url = `${DELCOM_BASEURL}${path}${queryString}`;
 
   const headers = { Accept: "application/json" };
   const token = getAccessToken();

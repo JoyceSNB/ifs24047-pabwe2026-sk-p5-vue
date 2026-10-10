@@ -12,7 +12,7 @@ const render = () =>
 describe("ModalShell", () => {
   it("menampilkan dialog beraksesibilitas dan fokus ke panel", () => {
     const wrapper = render();
-    const dialog = wrapper.find('[role="dialog"]');
+    const dialog = wrapper.find("dialog");
     expect(dialog.attributes("aria-labelledby")).toBe("t-id");
     expect(wrapper.find("#t-id").text()).toBe("Judul");
     expect(wrapper.text()).toContain("isi");
@@ -22,7 +22,7 @@ describe("ModalShell", () => {
   it("emit close lewat tombol, Escape, dan klik backdrop", async () => {
     const wrapper = render();
     await wrapper.find('button[aria-label="Tutup dialog"]').trigger("click");
-    await wrapper.find('[role="dialog"]').trigger("keydown.esc");
+    await wrapper.find("dialog").trigger("keydown.esc");
     await wrapper.trigger("click");
     expect(wrapper.emitted("close")).toHaveLength(3);
   });

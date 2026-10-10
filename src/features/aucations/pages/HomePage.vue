@@ -103,7 +103,7 @@ watch(activeTab, load);
     </div>
 
     <div class="mt-6 flex flex-wrap items-center justify-between gap-4">
-      <div role="group" aria-label="Filter lelang" class="flex flex-wrap gap-2">
+      <fieldset aria-label="Filter lelang" class="m-0 flex min-w-0 flex-wrap gap-2 border-0 p-0">
         <button
           v-for="tab in tabs"
           :key="tab.key"
@@ -114,7 +114,7 @@ watch(activeTab, load);
         >
           {{ tab.label }}
         </button>
-      </div>
+      </fieldset>
 
       <div class="relative w-full sm:w-72">
         <label for="search-input" class="sr-only">Cari lelang</label>
@@ -130,7 +130,7 @@ watch(activeTab, load);
       </button>
     </div>
 
-    <p v-if="store.isAucation" role="status" class="mt-10 text-slate-700">Memuat lelang...</p>
+    <output v-if="store.isAucation" class="mt-10 block text-slate-700">Memuat lelang...</output>
     <p v-else-if="!visible.length" class="mt-10 rounded-xl border border-dashed border-slate-400 p-10 text-center text-slate-700">
       Belum ada lelang yang cocok dengan filter ini.
     </p>

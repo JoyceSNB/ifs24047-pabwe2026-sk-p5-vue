@@ -44,7 +44,7 @@ describe("HomePage", () => {
   it("menampilkan status memuat dan status kosong", async () => {
     api.getAucations.mockReturnValue(new Promise(() => {}));
     const loading = await render();
-    expect(loading.wrapper.find('[role="status"]').text()).toMatch(/Memuat/);
+    expect(loading.wrapper.find("output").text()).toMatch(/Memuat/);
     api.getAucations.mockResolvedValue(ok([]));
     const empty = await render();
     await flushPromises();

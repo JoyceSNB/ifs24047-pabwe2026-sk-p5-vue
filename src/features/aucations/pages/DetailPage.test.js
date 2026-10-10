@@ -51,7 +51,7 @@ describe("DetailPage", () => {
   it("menampilkan status memuat dan lelang tidak ditemukan", async () => {
     api.getAucation.mockReturnValue(new Promise(() => {}));
     const loading = await render();
-    expect(loading.wrapper.find('[role="status"]').exists()).toBe(true);
+    expect(loading.wrapper.find("output").exists()).toBe(true);
     api.getAucation.mockResolvedValue({ status: "fail", message: "x" });
     const missing = await render();
     await flushPromises();

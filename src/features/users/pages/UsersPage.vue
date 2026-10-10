@@ -12,7 +12,7 @@ onMounted(() => store.fetchUsers());
     <h1 id="users-title" class="text-3xl font-extrabold text-indigo-950">Daftar Pengguna</h1>
     <p class="mt-1 text-slate-700">Peserta yang terdaftar di Delcom Auction.</p>
 
-    <p v-if="store.isUsers" role="status" class="mt-10 text-slate-700">Memuat pengguna...</p>
+    <output v-if="store.isUsers" class="mt-10 block text-slate-700">Memuat pengguna...</output>
     <p v-else-if="!store.users.length" class="mt-10 rounded-xl border border-dashed border-slate-400 p-10 text-center text-slate-700">
       Belum ada pengguna.
     </p>

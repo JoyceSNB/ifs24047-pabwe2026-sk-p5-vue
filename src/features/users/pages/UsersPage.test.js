@@ -10,7 +10,7 @@ describe("UsersPage", () => {
   it("menampilkan status memuat", async () => {
     userApi.getUsers.mockReturnValue(new Promise(() => {}));
     const { wrapper } = await renderWithProviders(UsersPage);
-    expect(wrapper.find('[role="status"]').text()).toMatch(/Memuat/);
+    expect(wrapper.find("output").text()).toMatch(/Memuat/);
   });
 
   it("menampilkan status kosong", async () => {

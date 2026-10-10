@@ -63,7 +63,7 @@ onMounted(() => {
   <section aria-labelledby="detail-title">
     <RouterLink to="/" class="text-sm font-semibold text-indigo-800 underline">Kembali ke dashboard</RouterLink>
 
-    <p v-if="store.isAucation && !item" role="status" class="mt-10 text-slate-700">Memuat detail lelang...</p>
+    <output v-if="store.isAucation && !item" class="mt-10 block text-slate-700">Memuat detail lelang...</output>
     <p v-else-if="!item" class="mt-10 rounded-xl border border-dashed border-slate-400 p-10 text-center text-slate-700">
       Lelang tidak ditemukan.
     </p>

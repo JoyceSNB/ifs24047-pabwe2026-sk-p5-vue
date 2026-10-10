@@ -33,7 +33,7 @@ describe("MarkdownEditor", () => {
 
   it("aman di-unmount sebelum editor selesai dimuat", () => {
     const wrapper = mount(MarkdownEditor);
-    expect(wrapper.find('[role="group"]').attributes("aria-label")).toBe("Deskripsi");
+    expect(wrapper.find("fieldset").attributes("aria-label")).toBe("Deskripsi");
     wrapper.unmount();
   });
 });

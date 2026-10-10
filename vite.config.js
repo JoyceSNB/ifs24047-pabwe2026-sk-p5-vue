@@ -51,7 +51,6 @@ export default defineConfig(({ mode }) => {
         reporter: ["text", "json", "html", "lcov"],
         include: ["src/**/*.{js,vue}"],
         exclude: [
-          "src/main.js",
           "src/setupTests.js",
           "src/test-utils.js",
           "**/*.test.{js,jsx}",

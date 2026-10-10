@@ -33,7 +33,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div role="group" :aria-label="label">
+  <fieldset :aria-label="label" class="m-0 min-w-0 border-0 p-0">
     <div ref="root" data-testid="markdown-editor"></div>
-  </div>
+  </fieldset>
 </template>

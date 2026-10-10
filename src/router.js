@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from "vue-router";
+﻿import { createRouter, createWebHistory } from "vue-router";
 import { getAccessToken } from "./helpers/apiHelper";
 
 export const routes = [
@@ -61,22 +61,23 @@ export const routes = [
 ];
 
 /** Guard rute: halaman privat butuh token, halaman auth hanya untuk tamu. */
+const redirectTarget = (to, isLoggedIn) => {
+  if (to.matched.some((r) => r.meta.requiresAuth) && !isLoggedIn) return "login";
+  if (to.matched.some((r) => r.meta.guestOnly) && isLoggedIn) return "home";
+  return "";
+};
+
 export const authGuard = (to) => {
-  const isLoggedIn = Boolean(getAccessToken());
-  if (to.matched.some((r) => r.meta.requiresAuth) && !isLoggedIn) {
-    return { name: "login" };
-  }
-  if (to.matched.some((r) => r.meta.guestOnly) && isLoggedIn) {
-    return { name: "home" };
-  }
-  return true;
+  const target = redirectTarget(to, Boolean(getAccessToken()));
+  return target ? { name: target } : true;
 };
 
 export const createAppRouter = (history = createWebHistory()) => {
   const instance = createRouter({ history, routes });
   instance.beforeEach(authGuard);
   instance.afterEach((to) => {
-    document.title = `${to.meta.title || "Delcom Auction"} | Delcom Auction`;
+    const title = typeof to.meta.title === "string" ? to.meta.title : "Delcom Auction";
+    document.title = `${title} | Delcom Auction`;
   });
   return instance;
 };

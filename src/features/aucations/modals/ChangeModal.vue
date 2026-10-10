@@ -21,7 +21,7 @@ const validate = () => {
   const result = {};
   if (!title.value.value.trim()) result.title = "Judul wajib diisi.";
   if (!description.value.trim()) result.description = "Deskripsi wajib diisi.";
-  if (!(Number(startBid.value.value) > 0)) result.startBid = "Harga awal harus lebih dari 0.";
+  if (Number(startBid.value.value) <= 0) result.startBid = "Harga awal harus lebih dari 0.";
   if (!closedAt.value.value) result.closedAt = "Batas waktu wajib diisi.";
   errors.value = result;
   return Object.keys(result).length === 0;

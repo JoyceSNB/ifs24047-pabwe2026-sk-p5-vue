@@ -29,6 +29,6 @@ describe("MarkdownViewer", () => {
   it("aman bila konten berubah/di-unmount sebelum viewer siap", async () => {
     const wrapper = mount(MarkdownViewer);
     await wrapper.setProps({ content: "x" });
-    wrapper.unmount();
+    expect(() => wrapper.unmount()).not.toThrow();
   });
 });

@@ -4,6 +4,7 @@ import ModalShell from "../components/ModalShell.vue";
 import MarkdownEditor from "../components/MarkdownEditor.vue";
 import { useInput } from "../../../hooks/useInput";
 import { useAucationsStore } from "../states/aucationsStore";
+import { validateAucationForm } from "../../../helpers/aucationForm";
 import { showErrorDialog, showSuccessDialog, toApiDateTime, toInputDateTime } from "../../../helpers/toolsHelper";
 
 const props = defineProps({
@@ -18,13 +19,13 @@ const description = ref(props.aucation.description);
 const errors = ref({});
 
 const validate = () => {
-  const result = {};
-  if (!title.value.value.trim()) result.title = "Judul wajib diisi.";
-  if (!description.value.trim()) result.description = "Deskripsi wajib diisi.";
-  if (Number(startBid.value.value) <= 0) result.startBid = "Harga awal harus lebih dari 0.";
-  if (!closedAt.value.value) result.closedAt = "Batas waktu wajib diisi.";
-  errors.value = result;
-  return Object.keys(result).length === 0;
+  errors.value = validateAucationForm({
+    title: title.value.value,
+    description: description.value,
+    startBid: startBid.value.value,
+    closedAt: closedAt.value.value,
+  });
+  return Object.keys(errors.value).length === 0;
 };
 
 const onSubmit = async () => {
